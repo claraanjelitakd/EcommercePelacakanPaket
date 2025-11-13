@@ -10,7 +10,6 @@ export default function DashboardPelacakan() {
   const [showScanMasuk, setShowScanMasuk] = useState(false);
   const [showScanKeluar, setShowScanKeluar] = useState(false);
   const [manualInput, setManualInput] = useState("");
-  const [packages, setPackages] = useState([]);
 
   // State Filter
   const [filterMonth, setFilterMonth] = useState("");

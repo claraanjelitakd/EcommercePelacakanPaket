@@ -14,14 +14,9 @@ const MainLayout = ({ children }) => {
       {/* Navbar */}
       <header className="bg-white shadow p-4">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold">
-              SP
-            </div>
-            <h1 className="text-lg md:text-xl font-semibold text-gray-800">
-              Sistem Pelacakan Paket
-            </h1>
-          </div>
+        <h1 className="text-2xl font-bold text-purple-700">
+          📦 Sistem Pelacakan Barang
+        </h1>
 
           {/* Desktop nav
           <nav className="hidden md:flex items-center gap-6">

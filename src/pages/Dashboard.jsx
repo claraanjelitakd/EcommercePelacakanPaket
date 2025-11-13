@@ -200,17 +200,14 @@ export default function DashboardPelacakan() {
   return (
     <div className="content--with-sidebar min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-100 text-gray-800 p-6 md:p-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
-        <h1 className="text-2xl font-bold text-purple-700">
-          📦 Sistem Pelacakan Barang
-        </h1>
-        <div className="flex gap-3">
+      <div className="flex flex-col md:flex-row justify-center items-center mb-4 gap-4">
+        <div className="flex justify-center gap-3 w-full">
           <button
             onClick={() => {
               setShowScanMasuk(true);
               setShowScanKeluar(false);
             }}
-            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
+            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white text-center text-lg rounded-xl shadow-lg transition w-[500px] h-[120px] flex items-center justify-center"
           >
             + Scan Masuk
           </button>
@@ -219,7 +216,7 @@ export default function DashboardPelacakan() {
               setShowScanKeluar(true);
               setShowScanMasuk(false);
             }}
-            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
+            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white text-center text-lg rounded-xl shadow-lg transition w-[500px] h-[120px] flex items-center justify-center"
           >
             ↗ Scan Keluar
           </button>
@@ -227,16 +224,15 @@ export default function DashboardPelacakan() {
       </div>
 
       {/* Stats In / Out */}
-      <div className="grid grid-cols-2 gap-4 mb-6 max-w-xs">
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm text-gray-500">In</div>
-          <div className="text-3xl font-bold text-purple-700">{countMasuk}</div>
-          <div className="text-xs text-gray-400 mt-1">{packages.length} total</div>
+      <div className="flex justify-center gap-6 mb-6">
+        <div className="bg-white w-[500px] h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
+          <div className="text-xl text-black-500">In</div>
+          <div className="text-2xl font-bold text-purple-700">{countMasuk}</div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <div className="text-sm text-gray-500">Out</div>
-          <div className="text-3xl font-bold text-green-700">{countKeluar}</div>
-          <div className="text-xs text-gray-400 mt-1">{packages.length - countKeluar} remaining</div>
+
+        <div className="bg-white w-[500px] h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
+          <div className="text-xl text-black-500">Out</div>
+          <div className="text-2xl font-bold text-green-700">{countKeluar}</div>
         </div>
       </div>
 

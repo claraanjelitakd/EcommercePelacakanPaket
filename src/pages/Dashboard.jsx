@@ -4,6 +4,10 @@ import api from "../api/api";
 import Button from "../reusable/Button";
 
 export default function DashboardPelacakan() {
+   // ⚡️ Tambahan yang wajib ada
+  const [mode, setMode] = useState("masuk");
+  const [scanValue, setScanValue] = useState("");
+  const inputRef = useRef(null);
   // --- STATE ---
   const [packages, setPackages] = useState([]);
   const [searchNo, setSearchNo] = useState("");

@@ -5,6 +5,7 @@ import { Html5QrcodeScanner } from "html5-qrcode";
 export default function DashboardPelacakan() {
   const [searchNo, setSearchNo] = useState("");
   const [showScanMasuk, setShowScanMasuk] = useState(false);
+  
   const [showScanKeluar, setShowScanKeluar] = useState(false);
   const [manualInput, setManualInput] = useState("");
   const [packages, setPackages] = useState([]);

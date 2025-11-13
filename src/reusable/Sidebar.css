@@ -1,28 +1,171 @@
+/* Sidebar modernized - background diganti ke gradient glassy */
+:root{
+  --sidebar-width: 260px;
+  --bg-gradient: linear-gradient(180deg, rgba(10,25,40,0.95) 0%, rgba(3,53,73,0.95) 100%);
+  --glass-overlay: rgba(255,255,255,0.03);
+  --accent: #4f46e5; /* warna aksen */
+  --muted: #cbd5e1;
+  --text: #ecf0f7;
+  --radius: 10px;
+}
+
+/* Sidebar utama */
 .sidebar {
-  width: 240px;
+  width: var(--sidebar-width);
   min-height: 100vh;
-  background-color: #2f3b52;
+  background: var(--bg-gradient);
+  background-blend-mode: overlay;
   position: fixed;
   top: 0;
   left: 0;
+  z-index: 1000;
+  padding: 22px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  transition: transform .25s ease, width .2s ease, box-shadow .2s ease;
+  border-right: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 6px 30px rgba(2,6,23,0.45), inset 0 1px 0 rgba(255,255,255,0.02);
+  backdrop-filter: blur(6px);
+  color: var(--text);
+  font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
 }
 
-.sidebar .nav-link {
-  color: #cfd8e3;
-  font-weight: 500;
-  padding: 10px 15px;
+/* Brand / header di sidebar */
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-decoration: none;
+}
+
+/* optional avatar / logo */
+.sidebar .brand .logo {
+  width: 40px;
+  height: 40px;
   border-radius: 8px;
-  margin-bottom: 6px;
-  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg,#ffffff10,#ffffff05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(15,23,42,0.35);
 }
 
+/* Wrapper menu */
+.sidebar .nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Link navigasi */
+.sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  margin-bottom: 0;
+  text-decoration: none;
+  transition: background-color .18s ease, color .18s ease, transform .12s ease, box-shadow .18s ease;
+  font-size: 0.95rem;
+}
+
+/* ikon di dalam link */
+.sidebar .nav-link i {
+  width: 20px;
+  text-align: center;
+  color: inherit;
+  font-size: 1.05rem;
+}
+
+/* hover / active */
 .sidebar .nav-link:hover,
 .sidebar .nav-link.active {
-  background-color: #3b50ce;
+  background: linear-gradient(90deg, rgba(79,70,229,0.12), rgba(0,191,166,0.04));
   color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(11,40,80,0.22);
 }
 
+/* subtle indicator for active item */
+.sidebar .nav-link.active::before {
+  content: "";
+  width: 4px;
+  height: 36px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, var(--accent), #00bfa6);
+  margin-right: 8px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* alternate hover utility */
 .hover-bg:hover {
-  background-color: rgba(255,255,255,0.1);
+  background-color: rgba(255,255,255,0.04);
 }
 
+/* fokus keyboard untuk aksesibilitas */
+.sidebar .nav-link:focus {
+  outline: 2px solid rgba(79,70,229,0.18);
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+
+/* helper: beri ruang untuk konten utama di sebelah sidebar */
+.content--with-sidebar {
+  margin-left: var(--sidebar-width);
+  transition: margin-left .25s ease;
+  box-sizing: border-box;
+}
+
+/* scrollbar styling untuk kesan modern */
+.sidebar::-webkit-scrollbar {
+  width: 10px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Responsif: sembunyikan sidebar di layar kecil; tambahkan class .open untuk menampilkan */
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-110%);
+    width: 240px;
+    box-shadow: 0 20px 60px rgba(2,6,23,0.6);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .content--with-sidebar {
+    margin-left: 0;
+  }
+
+  /* overlay ketika sidebar terbuka di mobile (tambahkan elemen .sidebar-overlay di markup jika ingin) */
+  .sidebar-overlay {
+    display: none;
+  }
+  .sidebar.open + .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(2,6,23,0.45);
+    z-index: 900;
+  }
+}

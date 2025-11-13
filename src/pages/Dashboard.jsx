@@ -1,5 +1,6 @@
+// ...existing code...
 import React, { useState, useEffect } from "react";
-import { Search, Trash2, LogOut, X, Camera } from "lucide-react";
+import { Search, Trash2, LogOut, X, Camera, Edit3 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
 export default function DashboardPelacakan() {
@@ -13,7 +14,7 @@ export default function DashboardPelacakan() {
   const ekspedisiMap = {
     JSX: "Jogja Express",
     JNE: "Jalur Nugraha Ekakurir",
-    TIKI: "Titipan Kilat",
+    TIKI:"Titipan Kilat",
     POS: "Pos Indonesia",
     SCP: "SiCepat Express",
     JNT: "J&T Express",
@@ -48,7 +49,7 @@ export default function DashboardPelacakan() {
 
   // 🔹 Tambah masuk
   const handleAddMasuk = (noResi) => {
-    if (!noResi.trim()) return alert("Nomor resi kosong!");
+    if (!noResi || !noResi.trim()) return alert("Nomor resi kosong!");
     const newPkg = {
       id: Date.now(),
       ekspedisi: getEkspedisi(noResi),
@@ -68,6 +69,7 @@ export default function DashboardPelacakan() {
 
   // 🔹 Tambah keluar
   const handleAddKeluar = (noResi) => {
+    if (!noResi || !noResi.trim()) return alert("Nomor resi kosong!");
     const updated = packages.map((pkg) =>
       pkg.noResi === noResi
         ? {
@@ -82,6 +84,24 @@ export default function DashboardPelacakan() {
     setPackages(updated);
     setManualInput("");
     setShowScanKeluar(false);
+  };
+
+  // ✏️ Edit action: ubah nomor resi (sederhana via prompt)
+  const handleEdit = (id) => {
+    const pkg = packages.find((p) => p.id === id);
+    if (!pkg) return;
+    const newNo = window.prompt("Edit nomor resi:", pkg.noResi);
+    if (!newNo) return;
+    const updated = packages.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            noResi: newNo,
+            ekspedisi: getEkspedisi(newNo),
+          }
+        : p
+    );
+    setPackages(updated);
   };
 
   const handleDelete = (id) => setPackages(packages.filter((p) => p.id !== id));
@@ -112,10 +132,10 @@ export default function DashboardPelacakan() {
         scanner.clear().catch(() => {});
       };
     }
-  }, [showScanMasuk, showScanKeluar]);
+  }, [showScanMasuk, showScanKeluar, packages]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-100 text-gray-800 p-6 md:p-10">
+    <div className="content--with-sidebar min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-100 text-gray-800 p-6 md:p-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-4">
         <h1 className="text-2xl font-bold text-purple-700">
@@ -124,13 +144,13 @@ export default function DashboardPelacakan() {
         <div className="flex gap-3">
           <button
             onClick={() => setShowScanMasuk(true)}
-            className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
+            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
           >
             + Scan Masuk
           </button>
           <button
             onClick={() => setShowScanKeluar(true)}
-            className="bg-white text-blue-600 border border-blue-200 px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
+            className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
           >
             ↗ Scan Keluar
           </button>
@@ -165,7 +185,7 @@ export default function DashboardPelacakan() {
 
       {/* Table */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-x-auto">
-        <table className="w-full min-w-[900px] text-left">
+        <table className="w-full table-auto text-left">
           <thead className="bg-purple-600 text-white text-sm">
             <tr>
               <th className="px-6 py-3">No</th>
@@ -182,7 +202,7 @@ export default function DashboardPelacakan() {
               filtered.map((pkg, i) => (
                 <tr key={pkg.id} className="border-b hover:bg-purple-50 transition">
                   <td className="px-6 py-3">{i + 1}</td>
-                  <td className="px-6 py-3 font-mono">{pkg.noResi}</td>
+                  <td className="px-6 py-3 font-mono break-words max-w-[220px]">{pkg.noResi}</td>
                   <td className="px-6 py-3">{pkg.ekspedisi}</td>
                   <td className="px-6 py-3">
                     {pkg.scanMasuk}
@@ -207,11 +227,21 @@ export default function DashboardPelacakan() {
                       {pkg.status}
                     </span>
                   </td>
-                  <td className="px-6 py-3 flex gap-2">
+                  <td className="px-6 py-3 flex gap-2 items-center">
+                    <button
+                      onClick={() => handleEdit(pkg.id)}
+                      className="text-purple-600 hover:text-purple-800 flex items-center gap-1 transition"
+                      aria-label="Edit"
+                      title="Edit"
+                    >
+                      <Edit3 size={16} /> Edit
+                    </button>
                     {!pkg.scanKeluar && (
                       <button
                         onClick={() => handleAddKeluar(pkg.noResi)}
                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1 transition"
+                        aria-label="Keluar"
+                        title="Mark Keluar"
                       >
                         <LogOut size={16} /> Keluar
                       </button>
@@ -219,6 +249,8 @@ export default function DashboardPelacakan() {
                     <button
                       onClick={() => handleDelete(pkg.id)}
                       className="text-red-500 hover:text-red-700 flex items-center gap-1 transition"
+                      aria-label="Hapus"
+                      title="Hapus"
                     >
                       <Trash2 size={16} /> Hapus
                     </button>
@@ -259,7 +291,7 @@ export default function DashboardPelacakan() {
               </span>
             </h2>
 
-            <div id="qr-reader" className="border border-gray-300 rounded-lg mb-4"></div>
+            <div id="qr-reader" style={{ minHeight: 260 }} className="border border-gray-300 rounded-lg mb-4"></div>
 
             <input
               type="text"
@@ -285,3 +317,4 @@ export default function DashboardPelacakan() {
     </div>
   );
 }
+// ...existing code...

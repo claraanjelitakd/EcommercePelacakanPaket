@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import MainLayout from "./layout/MainLayout";
 import ScanMasuk from "./pages/ScanMasuk";
 import ScanKeluar from "./pages/ScanKeluar";
-import Dashboard from "./pages/dashboard";
+import Dashboard from "./pages/Dashboard";
 
 const App = () => {
   return (

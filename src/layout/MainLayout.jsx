@@ -23,7 +23,7 @@ const MainLayout = ({ children }) => {
             </h1>
           </div>
 
-          {/* Desktop nav */}
+          {/* Desktop nav
           <nav className="hidden md:flex items-center gap-6">
             <NavLink to="/" className={linkClass}>
               Dashboard
@@ -34,7 +34,7 @@ const MainLayout = ({ children }) => {
             <NavLink to="/scan-keluar" className={linkClass}>
               Scan Keluar
             </NavLink>
-          </nav>
+          </nav> */}
 
           {/* Mobile menu button */}
           <button

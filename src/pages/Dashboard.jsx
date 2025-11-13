@@ -1,4 +1,3 @@
-// ...existing code...
 import React, { useState, useEffect } from "react";
 import { Search, Trash2, LogOut, X, Camera, Edit3 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
@@ -10,11 +9,21 @@ export default function DashboardPelacakan() {
   const [manualInput, setManualInput] = useState("");
   const [packages, setPackages] = useState([]);
 
+  // filters
+  const [filterMonth, setFilterMonth] = useState(""); // "YYYY-MM"
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [filterEkspedisi, setFilterEkspedisi] = useState("All");
+
+  // edit modal
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingPkgId, setEditingPkgId] = useState(null);
+  const [editInput, setEditInput] = useState("");
+
   // mapping kode ekspedisi → nama ekspedisi
   const ekspedisiMap = {
     JSX: "Jogja Express",
     JNE: "Jalur Nugraha Ekakurir",
-    TIKI:"Titipan Kilat",
+    TIKI: "Titipan Kilat",
     POS: "Pos Indonesia",
     SCP: "SiCepat Express",
     JNT: "J&T Express",
@@ -27,7 +36,10 @@ export default function DashboardPelacakan() {
     SAP: "SAP Express",
   };
 
+  const ekspedisiOptions = ["All", ...Object.values(ekspedisiMap)];
+
   const getEkspedisi = (kode) => {
+    if (!kode) return "Tidak Dikenal";
     const prefix = kode.slice(0, 3).toUpperCase();
     return ekspedisiMap[prefix] || "Tidak Dikenal";
   };
@@ -38,7 +50,7 @@ export default function DashboardPelacakan() {
     return `${date} ${time}`;
   };
 
-  // 🔹 Load & save ke session
+  // Load & save ke session
   useEffect(() => {
     const stored = sessionStorage.getItem("packages");
     if (stored) setPackages(JSON.parse(stored));
@@ -47,9 +59,17 @@ export default function DashboardPelacakan() {
     sessionStorage.setItem("packages", JSON.stringify(packages));
   }, [packages]);
 
-  // 🔹 Tambah masuk
-  const handleAddMasuk = (noResi) => {
-    if (!noResi || !noResi.trim()) return alert("Nomor resi kosong!");
+  // helper: ensure kode max 10 chars and trimmed
+  const normalizeCode = (s) => {
+    if (!s) return "";
+    const trimmed = s.trim();
+    return trimmed.length > 10 ? trimmed.slice(0, 10) : trimmed;
+  };
+
+  // Tambah masuk
+  const handleAddMasuk = (noResiRaw) => {
+    const noResi = normalizeCode(noResiRaw);
+    if (!noResi) return alert("Nomor resi kosong!");
     const newPkg = {
       id: Date.now(),
       ekspedisi: getEkspedisi(noResi),
@@ -62,14 +82,16 @@ export default function DashboardPelacakan() {
       byKeluar: "-",
       status: "Pending",
     };
-    setPackages([newPkg, ...packages]);
+    setPackages((prev) => [newPkg, ...prev]);
     setManualInput("");
     setShowScanMasuk(false);
+    setShowScanKeluar(false);
   };
 
-  // 🔹 Tambah keluar
-  const handleAddKeluar = (noResi) => {
-    if (!noResi || !noResi.trim()) return alert("Nomor resi kosong!");
+  // Tambah keluar
+  const handleAddKeluar = (noResiRaw) => {
+    const noResi = normalizeCode(noResiRaw);
+    if (!noResi) return alert("Nomor resi kosong!");
     const updated = packages.map((pkg) =>
       pkg.noResi === noResi
         ? {
@@ -81,19 +103,26 @@ export default function DashboardPelacakan() {
           }
         : pkg
     );
+    // if no matching entry, optionally add as keluar entry (keputusan: update only)
     setPackages(updated);
     setManualInput("");
+    setShowScanMasuk(false);
     setShowScanKeluar(false);
   };
 
-  // ✏️ Edit action: ubah nomor resi (sederhana via prompt)
-  const handleEdit = (id) => {
+  // Edit via modal (replace previous prompt)
+  const openEditModal = (id) => {
     const pkg = packages.find((p) => p.id === id);
     if (!pkg) return;
-    const newNo = window.prompt("Edit nomor resi:", pkg.noResi);
-    if (!newNo) return;
+    setEditingPkgId(id);
+    setEditInput(pkg.noResi);
+    setEditModalOpen(true);
+  };
+  const saveEdit = () => {
+    if (!editInput || !editInput.trim()) return alert("Nomor resi kosong!");
+    const newNo = normalizeCode(editInput);
     const updated = packages.map((p) =>
-      p.id === id
+      p.id === editingPkgId
         ? {
             ...p,
             noResi: newNo,
@@ -102,13 +131,25 @@ export default function DashboardPelacakan() {
         : p
     );
     setPackages(updated);
+    setEditModalOpen(false);
+    setEditingPkgId(null);
+    setEditInput("");
   };
 
   const handleDelete = (id) => setPackages(packages.filter((p) => p.id !== id));
 
-  const filtered = packages.filter((pkg) =>
-    pkg.noResi.toLowerCase().includes(searchNo.toLowerCase())
-  );
+  // combined filters: search, month (scanMasuk), ekspedisi
+  const filtered = packages
+    .filter((pkg) => pkg.noResi.toLowerCase().includes(searchNo.toLowerCase()))
+    .filter((pkg) =>
+      filterEkspedisi === "All" ? true : pkg.ekspedisi === filterEkspedisi
+    )
+    .filter((pkg) => {
+      if (!filterMonth) return true;
+      // filter by scanMasuk month (YYYY-MM) if scanMasuk exists
+      if (!pkg.scanMasuk) return false;
+      return pkg.scanMasuk.startsWith(filterMonth);
+    });
 
   const getStatusColor = (status) =>
     status === "Terkirim"
@@ -121,18 +162,40 @@ export default function DashboardPelacakan() {
 
   // QR Scanner
   useEffect(() => {
+    let scanner;
     if (showScanMasuk || showScanKeluar) {
-      const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+      scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
       scanner.render((decodedText) => {
-        if (showScanMasuk) handleAddMasuk(decodedText);
-        if (showScanKeluar) handleAddKeluar(decodedText);
-        scanner.clear();
+        // normalize and enforce max 10 chars, then auto-submit
+        const code = normalizeCode(decodedText);
+        if (!code) return;
+        if (showScanMasuk) handleAddMasuk(code);
+        if (showScanKeluar) handleAddKeluar(code);
+        // stop scanner
+        scanner
+          .clear()
+          .catch(() => {})
+          .finally(() => {});
       });
-      return () => {
-        scanner.clear().catch(() => {});
-      };
     }
-  }, [showScanMasuk, showScanKeluar, packages]);
+    return () => {
+      if (scanner) {
+        scanner.clear().catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showScanMasuk, showScanKeluar]); // no packages dep to avoid re-render loops
+
+  // auto-submit manual input when length reaches 10
+  const onManualChange = (v) => {
+    setManualInput(v);
+    const normalized = v.trim();
+    if (normalized.length >= 10) {
+      const code = normalizeCode(normalized);
+      if (showScanMasuk) handleAddMasuk(code);
+      else if (showScanKeluar) handleAddKeluar(code);
+    }
+  };
 
   return (
     <div className="content--with-sidebar min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-100 text-gray-800 p-6 md:p-10">
@@ -143,13 +206,19 @@ export default function DashboardPelacakan() {
         </h1>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowScanMasuk(true)}
+            onClick={() => {
+              setShowScanMasuk(true);
+              setShowScanKeluar(false);
+            }}
             className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
           >
             + Scan Masuk
           </button>
           <button
-            onClick={() => setShowScanKeluar(true)}
+            onClick={() => {
+              setShowScanKeluar(true);
+              setShowScanMasuk(false);
+            }}
             className="bg-gradient-to-r from-purple-600 to-purple-500 text-white px-4 py-2 rounded-lg shadow-md transition max-w-[160px]"
           >
             ↗ Scan Keluar
@@ -171,7 +240,7 @@ export default function DashboardPelacakan() {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search + Filters */}
       <div className="max-w-full bg-white p-4 rounded-xl shadow-sm mb-6 flex items-center gap-3 border border-gray-200">
         <Search className="text-gray-500 w-5 h-5" />
         <input
@@ -181,6 +250,50 @@ export default function DashboardPelacakan() {
           onChange={(e) => setSearchNo(e.target.value)}
           className="w-full outline-none"
         />
+
+        {/* month picker toggle + inline month input */}
+        <div className="flex items-center gap-2 ml-3">
+          <button
+            onClick={() => setShowMonthPicker((s) => !s)}
+            className="px-3 py-1 border rounded text-sm bg-gray-50 hover:bg-gray-100"
+            title="Filter per bulan"
+          >
+            {filterMonth ? filterMonth : "Bulan"}
+          </button>
+          {showMonthPicker && (
+            <div className="ml-2 flex items-center gap-2">
+              <input
+                type="month"
+                value={filterMonth}
+                onChange={(e) => setFilterMonth(e.target.value)}
+                className="border px-2 py-1 rounded bg-white"
+              />
+              <button
+                onClick={() => {
+                  setFilterMonth("");
+                  setShowMonthPicker(false);
+                }}
+                className="px-2 py-1 text-sm border rounded bg-white"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* ekspedisi dropdown */}
+          <select
+            value={filterEkspedisi}
+            onChange={(e) => setFilterEkspedisi(e.target.value)}
+            className="ml-2 px-2 py-1 border rounded bg-white text-sm"
+            title="Filter ekspedisi"
+          >
+            {ekspedisiOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -229,23 +342,13 @@ export default function DashboardPelacakan() {
                   </td>
                   <td className="px-6 py-3 flex gap-2 items-center">
                     <button
-                      onClick={() => handleEdit(pkg.id)}
+                      onClick={() => openEditModal(pkg.id)}
                       className="text-purple-600 hover:text-purple-800 flex items-center gap-1 transition"
                       aria-label="Edit"
                       title="Edit"
                     >
                       <Edit3 size={16} /> Edit
                     </button>
-                    {!pkg.scanKeluar && (
-                      <button
-                        onClick={() => handleAddKeluar(pkg.noResi)}
-                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1 transition"
-                        aria-label="Keluar"
-                        title="Mark Keluar"
-                      >
-                        <LogOut size={16} /> Keluar
-                      </button>
-                    )}
                     <button
                       onClick={() => handleDelete(pkg.id)}
                       className="text-red-500 hover:text-red-700 flex items-center gap-1 transition"
@@ -280,7 +383,7 @@ export default function DashboardPelacakan() {
                 setShowScanMasuk(false);
                 setShowScanKeluar(false);
               }}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              className="bg-gradient-to-r from-purple-600 to-purple-500 text-white font-semibold py-2 rounded-lg hover:from-purple-700 hover:to-purple-600 transition right-3 top-3 absolute"
             >
               <X size={20} />
             </button>
@@ -297,7 +400,7 @@ export default function DashboardPelacakan() {
               type="text"
               placeholder="Atau masukkan nomor resi manual..."
               value={manualInput}
-              onChange={(e) => setManualInput(e.target.value)}
+              onChange={(e) => onManualChange(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-400 focus:outline-none"
             />
 
@@ -314,7 +417,50 @@ export default function DashboardPelacakan() {
           </div>
         </div>
       )}
+
+      {/* Edit Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-[90%] max-w-md relative">
+            <button
+              onClick={() => {
+                setEditModalOpen(false);
+                setEditingPkgId(null);
+                setEditInput("");
+              }}
+              className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+            >
+              <X size={20} />
+            </button>
+            <h3 className="text-lg font-semibold mb-3 text-purple-700">Edit Nomor Resi</h3>
+            <input
+              type="text"
+              value={editInput}
+              onChange={(e) => setEditInput(e.target.value)}
+              className="w-full px-3 py-2 border rounded mb-4"
+              placeholder="Masukkan nomor resi (max 10 karakter)"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={saveEdit}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 text-white py-2 rounded"
+              >
+                Simpan
+              </button>
+              <button
+                onClick={() => {
+                  setEditModalOpen(false);
+                  setEditingPkgId(null);
+                  setEditInput("");
+                }}
+                className="flex-1 border rounded py-2"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-// ...existing code...

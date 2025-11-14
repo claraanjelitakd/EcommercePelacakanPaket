@@ -59,7 +59,7 @@ const Sidebar = () => {
         </li>
         <li>
           <NavLink
-            to="/mapping"
+            to="/mapping-user"
             className={({ isActive }) =>
               `nav-link text-white ${isActive ? "fw-bold text-primary" : ""}`
             }

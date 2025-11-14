@@ -1,17 +1,21 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import MainLayout from "./layout/MainLayout";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
+import ProtectedRoute from "./reusable/ProtectedRoute";
 
 const App = () => {
   return (
-    <Router>
-      <MainLayout>
+    <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/dashboard" element={ <ProtectedRoute> <Dashboard /> </ProtectedRoute>} />
+
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
-      </MainLayout>
-    </Router>
+    </BrowserRouter>
   );
 };
 

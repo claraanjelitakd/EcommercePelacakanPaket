@@ -1,19 +1,38 @@
 // src/api/api.js
 import axios from "axios";
 
-// Ganti baseURL kalau backend kamu dijalankan di server lain
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const api = axios.create({
-    baseURL: "http://localhost:5000/api",
+    baseURL: API_URL,
     headers: {
         "Content-Type": "application/json",
     },
 });
 
-// Optional: logging kalau error
-api.interceptors.response.use(
-    (response) => response,
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+    },
     (error) => {
-        console.error("❌ API Error:", error.response?.data || error.message);
+        return Promise.reject(error);
+    }
+);
+
+api.interceptors.response.use(
+    (response) => {
+        return response;
+    },
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            console.error("Sesi kedaluwarsa, silakan login kembali.");
+            localStorage.removeItem('token'); // Hapus token lama
+            window.location.href = '/login';
+        }
         return Promise.reject(error);
     }
 );

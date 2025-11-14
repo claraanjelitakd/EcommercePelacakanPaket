@@ -8,12 +8,10 @@ export default function DashboardPelacakan() {
   const [mode, setMode] = useState("masuk");
   const [scanValue, setScanValue] = useState("");
   const inputRef = useRef(null);
+
   // --- STATE ---
   const [packages, setPackages] = useState([]);
   const [searchNo, setSearchNo] = useState("");
-  const [showScanMasuk, setShowScanMasuk] = useState(false);
-  const [showScanKeluar, setShowScanKeluar] = useState(false);
-  const [manualInput, setManualInput] = useState("");
 
   // State Filter
   const [filterMonth, setFilterMonth] = useState("");
@@ -133,6 +131,8 @@ export default function DashboardPelacakan() {
     setEditModalOpen(true);
   };
 
+
+
   const saveEdit = async () => {
     if (!editInput.trim()) return alert("Nomor resi tidak boleh kosong!");
     const newNo = editInput.trim().toUpperCase();
@@ -215,8 +215,22 @@ export default function DashboardPelacakan() {
 
   // --- RENDER ---
   return (
-    <div className="content--with-sidebar min-h-screen bg-gradient-to-br from-gray-50 via-white to-purple-100 text-gray-800 p-6 md:p-10">
+    <div className="content--with-sidebar from-gray-50 via-white to-purple-100 text-gray-800">
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6 text-center">
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
+            <div className="text-xl text-gray-600">Total Masuk</div>
+            <div className="text-3xl font-bold text-purple-700">{countMasuk}</div>
+          </div>
+          <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
+            <div className="text-xl text-gray-600">Total Keluar</div>
+            <div className="text-3xl font-bold text-green-700">{countKeluar}</div>
+          </div>
+        </div>
+
+        <hr className="py-3 "/>
+
         <div className="flex justify-center gap-4 mb-4">
           <Button
             onClick={() => setMode("masuk")}
@@ -256,18 +270,6 @@ export default function DashboardPelacakan() {
               }`}
           />
         </form>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
-          <div className="text-xl text-gray-600">Total Masuk</div>
-          <div className="text-3xl font-bold text-purple-700">{countMasuk}</div>
-        </div>
-        <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
-          <div className="text-xl text-gray-600">Total Keluar</div>
-          <div className="text-3xl font-bold text-green-700">{countKeluar}</div>
-        </div>
       </div>
 
       {/* Search + Filters */}

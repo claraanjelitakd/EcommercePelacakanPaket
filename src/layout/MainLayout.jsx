@@ -1,7 +1,11 @@
 import React, { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import Button from '../reusable/Button'
+import api from '../api/api';
 
 const MainLayout = ({ children }) => {
+  const navigate = useNavigate();
+
   const [open, setOpen] = useState(false);
 
   const linkClass = ({ isActive }) =>
@@ -9,14 +13,20 @@ const MainLayout = ({ children }) => {
       ? "text-blue-600 font-medium"
       : "text-gray-600 hover:text-blue-500";
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navbar */}
       <header className="bg-white shadow p-4">
         <div className="container mx-auto flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-purple-700">
-          📦 Sistem Pelacakan Barang
-        </h1>
+          <h1 className="text-2xl font-bold text-purple-700">
+            📦 Sistem Pelacakan Barang
+          </h1>
 
           {/* Desktop nav
           <nav className="hidden md:flex items-center gap-6">
@@ -60,6 +70,11 @@ const MainLayout = ({ children }) => {
               )}
             </svg>
           </button>
+          <div className="flex justify-end mb-4">
+            <Button variant="danger" onClick={handleLogout} className="px-4 py-2">
+              Logout
+            </Button>
+          </div>
         </div>
 
         {/* Mobile nav */}

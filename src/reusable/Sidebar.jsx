@@ -1,9 +1,15 @@
-// src/components/reusable/Sidebar.jsx
 import React from "react";
-import { NavLink } from "react-router-dom";
-import { HouseDoor, People, Briefcase, Building } from "react-bootstrap-icons";
+import { NavLink, useNavigate } from "react-router-dom";
+import { HouseDoor, People, Briefcase, Building, BoxArrowRight, Kanban } from "react-bootstrap-icons";
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
   return (
     <div
       className="bg-dark text-white d-flex flex-column p-3"
@@ -16,7 +22,22 @@ const Sidebar = () => {
       }}
     >
       <h4 className="text-center mb-4">Admin Panel</h4>
+
       <ul className="nav flex-column gap-2">
+
+        {/* 🔹 DASHBOARD */}
+        <li>
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `nav-link text-white ${isActive ? "fw-bold text-primary" : ""}`
+            }
+          >
+            <HouseDoor className="me-2" /> Dashboard
+          </NavLink>
+        </li>
+
+        {/* 🔹 APPLICATIONS */}
         <li>
           <NavLink
             to="/applications"
@@ -24,9 +45,11 @@ const Sidebar = () => {
               `nav-link text-white ${isActive ? "fw-bold text-primary" : ""}`
             }
           >
-            <HouseDoor className="me-2" /> Applications
+            <Kanban className="me-2" /> Applications
           </NavLink>
         </li>
+
+        {/* 🔹 BRANCHES */}
         <li>
           <NavLink
             to="/branches"
@@ -37,6 +60,8 @@ const Sidebar = () => {
             <Building className="me-2" /> Branches
           </NavLink>
         </li>
+
+        {/* 🔹 ROLES */}
         <li>
           <NavLink
             to="/roles"
@@ -47,6 +72,8 @@ const Sidebar = () => {
             <Briefcase className="me-2" /> Roles
           </NavLink>
         </li>
+
+        {/* 🔹 USERS */}
         <li>
           <NavLink
             to="/users"
@@ -57,6 +84,8 @@ const Sidebar = () => {
             <People className="me-2" /> Users
           </NavLink>
         </li>
+
+        {/* 🔹 MAPPING USER ROLE */}
         <li>
           <NavLink
             to="/mapping-user"
@@ -68,6 +97,14 @@ const Sidebar = () => {
           </NavLink>
         </li>
       </ul>
+
+      {/* 🔹 LOGOUT BUTTON */}
+      <button
+        className="btn btn-danger mt-auto"
+        onClick={handleLogout}
+      >
+        <BoxArrowRight className="me-2" /> Logout
+      </button>
     </div>
   );
 };

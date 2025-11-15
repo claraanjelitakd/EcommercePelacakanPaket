@@ -40,8 +40,6 @@ const ActionButton = ({ icon, tooltip, onClick, color = 'secondary', className =
       <Button
         variant="link"
         onClick={onClick}
-        // p-1: Memberi area klik yang lebih baik daripada p-0
-        // lh-1: (line-height) Mencegah tombol jadi terlalu tinggi
         className={`p-1 lh-1 ${colorClass} ${className}`}
         {...props}
       >

@@ -1,5 +1,6 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
+import MainLayout from "../layout/MainLayout";
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -8,7 +9,11 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  return children; // TIDAK ADA LAYOUT DI SINI
+  return (
+    <MainLayout>
+      {children}
+    </MainLayout>
+  )
 };
 
 export default ProtectedRoute;

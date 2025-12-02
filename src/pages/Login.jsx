@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { Eye, EyeOff } from "lucide-react";
 import api from '../api/api';
 import Button from '../reusable/Button';
 
 export default function LoginPage() {
-    const [email, setEmail] = useState('');
+    const [userName, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const navigate = useNavigate();
 
@@ -26,10 +28,22 @@ export default function LoginPage() {
         setLoading(true);
 
         try {
-            const res = await api.post('/auth/login', { email, password });
+            const res = await api.post('/auth/login', { userName, password });
 
-            const token = res.data.token;
+            const { token, user, role, application, branch } = res.data;
+
             localStorage.setItem('token', token);
+
+            const userData = {
+                ...user,
+                role: role, 
+                application: application,
+                branch: branch
+            };
+
+            localStorage.setItem('user', JSON.stringify(userData));
+            if (application) localStorage.setItem('application', JSON.stringify(application));
+            if (branch) localStorage.setItem('branch', JSON.stringify(branch));
 
             api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
@@ -49,29 +63,21 @@ export default function LoginPage() {
                     Login Sistem
                 </h2>
 
-                {successMsg && (
-                    <p className="text-sm text-center text-green-600">{successMsg}</p>
-                )}
-                {error && (
-                    <p className="text-sm text-center text-red-600">{error}</p>
-                )}
-
                 <form onSubmit={handleLogin} className="space-y-6">
                     <div>
                         <label
-                            htmlFor="email"
+                            htmlFor="username"
                             className="block text-sm font-medium text-gray-700"
                         >
-                            Email
+                            Username
                         </label>
                         <input
-                            id="email"
-                            type="email"
+                            id="username"
+                            type="text"
                             required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            value={userName}
+                            onChange={(e) => setUsername(e.target.value)}
                             className="text-gray-700 w-full px-4 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                            placeholder="anda@email.com"
                         />
                     </div>
 
@@ -82,16 +88,28 @@ export default function LoginPage() {
                         >
                             Password
                         </label>
-                        <input
-                            id="password"
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="text-gray-700 w-full px-4 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                        />
+                        <div className="relative">
+                            <input
+                                id="password"
+                                type={showPassword ? "text" : "password"}
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="text-gray-700 w-full px-4 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 cursor-pointer"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        </div>
                     </div>
 
+                    {successMsg && (
+                        <p className="text-sm text-center text-green-600">{successMsg}</p>
+                    )}
                     {error && (
                         <p className="text-sm text-center text-red-600">{error}</p>
                     )}

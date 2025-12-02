@@ -27,8 +27,12 @@ const Branches = () => {
 
   const fetchApplications = async () => {
     try {
-      const res = await api.get("/applications");
-      setApplications(res.data);
+      const {data} = await api.get("/applications");
+      setApplications(data);
+      console.log(data);
+      if (res.data.length > 0) {
+        setSelectedApp(res.data[0]);
+      }
     } catch (error) {
       console.error("❌ Error fetching applications:", error);
     }

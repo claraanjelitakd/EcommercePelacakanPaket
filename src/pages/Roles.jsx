@@ -6,61 +6,45 @@ import Button from "../reusable/Button";
 import Modal from "../reusable/Modal";
 
 const Roles = () => {
-  const [applications, setApplications] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [selectedApp, setSelectedApp] = useState(null);
-  const [selectedBranch, setSelectedBranch] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Add Role");
   const [currentRole, setCurrentRole] = useState({
     id: null,
-    branchId: "",
     name: "",
     description: "",
   });
 
   useEffect(() => {
-    fetchApplications();
-    fetchBranches();
     fetchRoles();
   }, []);
 
-  const fetchApplications = async () => {
-    try {
-      const res = await api.get("/applications");
-      setApplications(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching applications:", err);
-    }
-  };
-
-  const fetchBranches = async () => {
-    try {
-      const res = await api.get("/branches");
-      setBranches(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching branches:", err);
-    }
-  };
-
   const fetchRoles = async () => {
+    setIsLoading(true);
     try {
       const res = await api.get("/roles");
       setRoles(res.data);
     } catch (err) {
       console.error("❌ Error fetching roles:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const filteredRoles = roles.filter((role) => {
+    const searchLower = searchTerm.toLowerCase();
+    const nameMatch = role.name.toLowerCase().includes(searchLower);
+    const descMatch = role.description && role.description.toLowerCase().includes(searchLower);
+    return nameMatch || descMatch;
+  });
+
   // Handler
   const handleAddNew = () => {
-    if (!selectedBranch) return alert("Please select a branch first!");
     setModalTitle("Add Role");
     setCurrentRole({
       id: null,
-      branchId: selectedBranch.id,
       name: "",
       description: "",
     });
@@ -102,21 +86,6 @@ const Roles = () => {
     }
   };
 
-  // Filter
-  const filteredApps = applications.filter(
-    (app) =>
-      app.app_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.app_code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredBranches = branches.filter(
-    (b) => b.applicationId === selectedApp?.id
-  );
-
-  const filteredRoles = roles.filter(
-    (r) => r.branchId === selectedBranch?.id
-  );
-
   // Styling
   const customStyles = {
     headCells: {
@@ -134,14 +103,6 @@ const Roles = () => {
       },
     },
   };
-
-  const appColumns = [
-    { name: "Application", selector: (row) => `${row.app_name} (${row.app_code})`, sortable: true },
-  ];
-
-  const branchColumns = [
-    { name: "Branch", selector: (row) => `${row.name} (${row.code})`, sortable: true },
-  ];
 
   const roleColumns = [
     { name: "Role", selector: (row) => row.name, sortable: true, grow: 1 },
@@ -175,13 +136,6 @@ const Roles = () => {
     },
   ];
 
-  const conditionalRowStyles = (selectedRow) => [
-    {
-      when: (row) => row.id === selectedRow?.id,
-      style: { backgroundColor: "#E0E7FF", color: "#1F2937", fontWeight: "600" },
-    },
-  ];
-
   return (
     <>
       {/* Page Header */}
@@ -190,8 +144,6 @@ const Roles = () => {
         <Button
           variant="primary"
           onClick={handleAddNew}
-          disabled={!selectedBranch}
-          title={!selectedBranch ? "Pilih aplikasi & cabang dulu" : "Tambah role baru"}
         >
           <Plus size={18} />
           Add New Role
@@ -204,7 +156,7 @@ const Roles = () => {
           <Search className="text-gray-500 w-5 h-5 flex-shrink-0" />
           <input
             type="text"
-            placeholder="Search Application..."
+            placeholder="Search role..."
             className="w-full bg-transparent outline-none text-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -212,65 +164,24 @@ const Roles = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-        {/* Table Applications */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <DataTable
-              columns={appColumns}
-              data={filteredApps}
-              customStyles={customStyles}
-              highlightOnHover
-              pointerOnHover
-              onRowClicked={(row) => {
-                setSelectedApp(row);
-                setSelectedBranch(null);
-              }}
-              conditionalRowStyles={conditionalRowStyles(selectedApp)}
-            />
-          </div>
-        </div>
-
-        {/* Table Branches */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            {selectedApp ? (
-              <DataTable
-                columns={branchColumns}
-                data={filteredBranches}
-                customStyles={customStyles}
-                highlightOnHover
-                pointerOnHover
-                onRowClicked={(row) => setSelectedBranch(row)}
-                conditionalRowStyles={conditionalRowStyles(selectedBranch)}
-              />
-            ) : (
-              <p className="p-4 text-gray-500 text-sm">
-                Pilih Aplikasi...
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Table Roles */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          {selectedBranch ? (
-            <DataTable
-              columns={roleColumns}
-              data={filteredRoles}
-              customStyles={customStyles}
-              highlightOnHover
-              striped
-              pagination
-            />
-          ) : (
-            <p className="p-4 text-gray-500 text-sm">
-              Pilih Cabang...
-            </p>
-          )}
+          <DataTable
+            columns={roleColumns}
+            data={filteredRoles}
+            customStyles={customStyles}
+            highlightOnHover
+            striped
+            pagination
+            progressPending={isLoading}
+            persistTableHead
+            noDataComponent={
+              <div className="p-10 text-center text-gray-500">
+                No roles defined yet. Click "Create New Role" to start.
+              </div>
+            }
+          />
         </div>
       </div>
 
@@ -295,7 +206,7 @@ const Roles = () => {
                 setCurrentRole({ ...currentRole, name: e.target.value })
               }
               placeholder="Enter role name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none" autoFocus
             />
           </div>
 

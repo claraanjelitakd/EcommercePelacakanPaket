@@ -1,33 +1,102 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom"; // Butuh ini untuk logout
+import { LogOut, Menu } from "lucide-react"; // Icon tambahan
 import Button from "../reusable/Button";
 import Sidebar from "../reusable/Sidebar";
 
 const MainLayout = ({ children }) => {
-
     const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [userData, setUserData] = useState(null);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        // 1. Ambil data user dari localStorage
+        const userString = localStorage.getItem("user");
+
+        if (userString) {
+            try {
+                const user = JSON.parse(userString);
+                setUserData(user);
+
+                // Cek Role
+                const roleName = user.role?.name || user.role || "";
+                const roleLower = roleName.toString().toLowerCase();
+
+                if (roleLower.includes("admin") || roleLower.includes("owner") || roleLower.includes("manager")) {
+                    setIsAdmin(true);
+                } else {
+                    setIsAdmin(false);
+                }
+            } catch (error) {
+                console.error("Gagal parsing user data", error);
+            }
+        }
+    }, []);
+
+    const handleLogout = () => {
+        if (window.confirm("Apakah anda yakin ingin keluar?")) {
+            localStorage.clear(); // Hapus token & user data
+            navigate("/login");
+        }
+    };
 
     return (
-        <div className="flex min-h-screen bg-gray-50 ">
+        <div className="flex min-h-screen bg-gray-50">
 
-            <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+            {/* 3. Render Sidebar HANYA jika Admin */}
+            {isAdmin && (
+                <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
+            )}
 
-            <div className="flex-1 flex flex-col lg:ml-[240px] min-w-0">
+            {/* 4. Konten Utama 
+                - Jika Admin: Geser ke kanan (lg:ml-[240px])
+                - Jika Bukan: Full width (hapus margin)
+            */}
+            <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isAdmin ? "lg:ml-[240px]" : ""
+                }`}>
 
-                <header className="bg-white shadow-md p-4 z-10">
+                <header className="bg-white shadow-sm border-b border-gray-200 p-4 z-20 sticky top-0">
                     <div className="flex items-center justify-between">
 
-                        <Button
-                            onClick={() => setSidebarOpen(true)}
-                            className="lg:hidden p-2 rounded text-gray-700 hover:bg-gray-200"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            {/* Tombol Hamburger (Hanya muncul jika Admin & di layar kecil) */}
+                            {isAdmin && (
+                                <Button
+                                    onClick={() => setSidebarOpen(true)}
+                                    className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                                >
+                                    <Menu className="w-6 h-6" />
+                                </Button>
+                            )}
 
-                        <h1 className="text-3xl font-bold text-purple-700 hidden sm:block">
-                            📦 Sistem Pelacakan Barang
-                        </h1>
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2">
+                                📦 <span className="hidden sm:inline">Sistem Pelacakan</span>
+                            </h1>
+                        </div>
+
+                        {/* Info User & Logout */}
+                        <div className="flex items-center gap-4">
+                            {userData && (
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-sm font-semibold text-gray-700">{userData.name || userData.username}</p>
+                                    <p className="text-xs text-gray-500 capitalize">
+                                        {/* Menampilkan Role/Jabatan */}
+                                        {typeof userData.role === 'object' ? userData.role.name : userData.role}
+                                    </p>
+                                </div>
+                            )}
+
+                            <Button
+                                onClick={handleLogout}
+                                variant="ghost"
+                                className="text-red-500 hover:bg-red-50 hover:text-red-700 flex items-center gap-2"
+                                title="Logout"
+                            >
+                                <LogOut size={18} />
+                                <span className="hidden sm:inline">Keluar</span>
+                            </Button>
+                        </div>
                     </div>
                 </header>
 
@@ -35,7 +104,7 @@ const MainLayout = ({ children }) => {
                     {children}
                 </main>
 
-                <footer className="text-center text-gray-500 text-sm py-4 border-t bg-white">
+                <footer className="text-center text-gray-400 text-sm py-6 border-t bg-white mt-auto">
                     © {new Date().getFullYear()} Sistem Pelacakan Paket
                 </footer>
             </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Trash2, X, Edit3, ChevronLeft, ChevronRight, CheckCircle, Clock, CalendarDays, ChevronDown, Truck, ListFilter, UserCheck } from "lucide-react";
+import { Search, Trash2, X, Edit3, ChevronLeft, ChevronRight, CheckCircle, Clock, CalendarDays, ChevronDown, Truck, ListFilter, UserCheck, Camera } from "lucide-react";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import api from "../api/api";
 import Button from "../reusable/Button";
 
@@ -9,7 +10,14 @@ export default function Dashboard() {
   const [scanValue, setScanValue] = useState("");
   const inputRef = useRef(null);
 
-  // --- STATE ---
+  // State animasi angka
+  const [animateMasuk, setAnimateMasuk] = useState(false);
+  const [animateKeluar, setAnimateKeluar] = useState(false);
+
+  const [showScanner, setShowScanner] = useState(false);
+  const isProcessingRef = useRef(false);
+
+  // State data
   const [packages, setPackages] = useState([]);
   const [searchNo, setSearchNo] = useState("");
 
@@ -37,6 +45,79 @@ export default function Dashboard() {
     fetchPackages();
   }, []);
 
+  useEffect(() => {
+    let scanner;
+    if (showScanner) {
+      scanner = new Html5QrcodeScanner(
+        "reader",
+        {
+          fps: 10,
+          qrbox: {width: 350, height: 150 },
+          aspectRatio: 1.0,
+          disableFlip: false,
+        },
+        false
+      );
+
+      scanner.render(
+        (decodedText) => {
+          const cleanText = decodedText.trim().toUpperCase();
+          
+          if(cleanText.length > 3) {
+              setScanValue(cleanText);
+              
+              processSubmit(cleanText);
+          }
+        },
+        (errorMessage) => {}
+      );
+    }
+
+    return () => {
+      if (scanner) {
+        try { scanner.clear(); } catch (error) {}
+      }
+      isProcessingRef.current = false;
+    };
+  }, [showScanner, mode]);
+
+
+  const processSubmit = async (code) => {
+    if (!code || code.trim() === "") return;
+
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    try {
+      const endpoint = mode === "masuk" ? "/packages/masuk" : "/packages/keluar";
+
+      const res = await api.post(endpoint, { noResi: code });
+      const data = res.data;
+
+      if (mode === "masuk") {
+        setPackages((prev) => [data, ...prev]);
+      } else {
+        setPackages((prev) => {
+          const existsLocally = prev.find(p => p.noResi === data.noResi);
+          return existsLocally
+            ? prev.map((p) => (p.noResi === data.noResi ? data : p))
+            : [data, ...prev];
+        });
+      }
+
+      new Audio("/success-beep.mp3").play().catch(() => { });
+      setScanValue("");
+
+    } catch (err) {
+      console.error("Scan Error:", err);
+      alert(`Gagal: ${err.response?.data?.message || "Error"}`);
+    } finally {
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1500);
+    }
+  };
+
   const fetchPackages = async () => {
     try {
       const res = await api.get("/packages");
@@ -47,11 +128,9 @@ export default function Dashboard() {
   };
 
   // --- Logic ---
-
-  // Fungsi baru untuk memformat tanggal
   const formatTanggal = (tanggalString) => {
     if (!tanggalString) {
-      return "-"; // Kembalikan strip jika data kosong
+      return "-";
     }
 
     const options = {
@@ -60,53 +139,20 @@ export default function Dashboard() {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false // Gunakan format 24 jam
+      hour12: false
     };
 
-    // 'id-ID' untuk format Indonesia (Contoh: 13 Nov 2025, 14:30)
     return new Date(tanggalString).toLocaleString('id-ID', options);
   };
 
-  const handleScanSubmit = async (e) => {
-    e.preventDefault();
+  const handleScanSubmit = (e) => {
+    e.preventDefault(); 
     const value = scanValue.trim().toUpperCase();
-    if (!value) return;
-
-    const exists = packages.find((p) => p.noResi === value);
-
-    if (mode === "masuk" && exists) {
-      alert("❌ Nomor resi sudah ada di database!");
-      setScanValue("");
-      return;
-    }
-
-    if (mode === "keluar" && !exists) {
-      alert("❌ Nomor resi tidak ditemukan! Scan Masuk terlebih dahulu.");
-      setScanValue("");
-      return;
-    }
-
-    try {
-      const endpoint = mode === "masuk" ? "/packages/masuk" : "/packages/keluar";
-      const body = { noResi: value };
-
-      const res = await api.post(endpoint, body);
-      const data = res.data;
-
-      if (mode === "masuk") {
-        setPackages((prev) => [data, ...prev]);
-      } else {
-        setPackages((prev) =>
-          prev.map((p) => (p.noResi === data.noResi ? data : p))
-        );
-      }
-      new Audio("/success-beep.mp3").play().catch(() => { });
-    } catch (err) {
-      console.error("Error saat scan:", err);
-      alert(`Gagal memproses resi! ${err.response?.data?.message || ""}`);
-    } finally {
-      setScanValue("");
-    }
+    
+    processSubmit(value);
+    
+    setScanValue(""); 
+    inputRef.current?.focus();
   };
 
   const handleDelete = async (id) => {
@@ -152,7 +198,7 @@ export default function Dashboard() {
 
   const handleScanChange = (e) => {
     const rawValue = e.target.value;
-    const cleanedValue = rawValue.replace(/[^a-zA-Z0-9]/g, '');
+    const cleanedValue = rawValue.replace(/[^a-zA-Z0-9-]/g, '');
     const upperValue = cleanedValue.toUpperCase();
     const finalValue = upperValue.slice(0, 25);
 
@@ -170,7 +216,6 @@ export default function Dashboard() {
     return ['All', ...new Set(names)];
   }, [packages]);
 
-  // 'filtered' berisi SEMUA hasil yang cocok (belum dipaginasi)
   const filtered = useMemo(() => {
     return packages
       .filter((pkg) => pkg.noResi.toLowerCase().includes(searchNo.toLowerCase()))
@@ -219,6 +264,21 @@ export default function Dashboard() {
   const countMasuk = packages.filter((p) => !!p.scanMasuk).length;
   const countKeluar = packages.filter((p) => !!p.scanKeluar).length;
 
+
+  useEffect(() => {
+    if (countMasuk !== null) {
+      setAnimateMasuk(true);
+      setTimeout(() => setAnimateMasuk(false), 300);
+    }
+  }, [countMasuk]);
+
+  useEffect(() => {
+    if (countKeluar !== null) {
+      setAnimateKeluar(true);
+      setTimeout(() => setAnimateKeluar(false), 300);
+    }
+  }, [countKeluar]);
+
   // --- RENDER ---
   return (
     <>
@@ -227,13 +287,26 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-6 mb-6">
           <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
             <div className="text-xl text-gray-600">Total Masuk</div>
-            <div className="text-3xl font-bold text-purple-700">{countMasuk}</div>
+            <div
+              className={`text-3xl font-bold text-purple-700 transition-transform duration-300
+        ${animateMasuk ? "scale-125" : "scale-100"}`}
+            >
+              {countMasuk}
+            </div>
           </div>
+
           <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
             <div className="text-xl text-gray-600">Total Keluar</div>
-            <div className="text-3xl font-bold text-green-700">{countKeluar}</div>
+            <div
+              className={`text-3xl font-bold text-green-700 transition-transform duration-300
+        ${animateKeluar ? "scale-125" : "scale-100"}`}
+            >
+              {countKeluar}
+            </div>
           </div>
+
         </div>
+
 
         <hr className="py-3 " />
 
@@ -262,20 +335,38 @@ export default function Dashboard() {
         </div>
 
         <form onSubmit={handleScanSubmit}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={scanValue}
-            onChange={handleScanChange}
-            maxLength={25}
-            autoFocus
-            placeholder={`Scan resi untuk ${mode === "masuk" ? "MASUK (IN)" : "KELUAR (OUT)"
-              }...`}
-            className={`w-full px-4 py-3 border-2 rounded-lg text-lg text-center tracking-widest uppercase focus:outline-none transition-colors ${mode === "masuk"
-              ? "focus:border-purple-500 focus:ring-purple-200"
-              : "focus:border-green-500 focus:ring-green-200"
-              }`}
-          />
+          <div className="relative max-w-2xl mx-auto flex items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={scanValue}
+              onChange={handleScanChange}
+              maxLength={25}
+              autoFocus
+              placeholder={`Scan resi untuk ${mode === "masuk" ? "MASUK (IN)" : "KELUAR (OUT)"
+                }...`}
+              className={`w-full px-4 py-3 border-2 rounded-lg text-lg text-center tracking-widest uppercase focus:outline-none transition-colors ${mode === "masuk"
+                ? "focus:border-purple-500 focus:ring-purple-200"
+                : "focus:border-green-500 focus:ring-green-200"
+                }`}
+            />
+
+            <div className="absolute right-4 flex items-center gap-2">
+              {scanValue && (
+                <button type="button" onClick={() => setScanValue("")} className="text-gray-400 hover:text-gray-600 p-1">
+                  <X size={20} />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="text-gray-500 hover:text-purple-600 transition-colors p-1"
+                title="Buka Kamera"
+              >
+                <Camera size={24} />
+              </button>
+            </div>
+          </div>
         </form>
       </div>
 
@@ -318,19 +409,14 @@ export default function Dashboard() {
               className="w-full bg-transparent outline-none appearance-none text-sm cursor-pointer px-3 py-2 pl-10"
             >
               <option value="All">Semua Ekspedisi</option>
-              <option value="Jogja Express">Jogja Express (JSX)</option>
-              <option value="Jalur Nugraha Ekakurir">JNE</option>
-              <option value="Titipan Kilat">TIKI</option>
-              <option value="Pos Indonesia">Pos Indonesia</option>
-              <option value="SiCepat Express">SiCepat (SCP)</option>
-              <option value="J&T Express">J&T Express (JNT)</option>
-              <option value="Anteraja">Anteraja (ATJ)</option>
-              <option value="Lion Parcel">Lion Parcel (LPC)</option>
-              <option value="Ninja Xpress">Ninja Xpress (NJX)</option>
-              <option value="Wahana Express">Wahana (WHN)</option>
-              <option value="GoSend">GoSend (GSD)</option>
-              <option value="Grab Express">Grab Express (GBE)</option>
-              <option value="SAP Express">SAP Express</option>
+              <option value="J&T Express">J&T Express (JX)</option>
+              <option value="SiCepat Express">SiCepat Express</option>
+              <option value="Shopee Express">Shopee Express (SPXID)</option>
+              <option value="JNE Express">JNE Express (CM|TG|JT)</option>
+              <option value="ID Express">ID Express (TKP)</option>
+              <option value="Anteraja">Anteraja (TSA-)</option>
+              <option value="Wahana Express">Wahana Express (TSWHN)</option>
+              <option value="Grab/Gojek">Grab/Gojek</option>
               <option value="Tidak Dikenal">Tidak Dikenal</option>
             </select>
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -392,8 +478,8 @@ export default function Dashboard() {
                 <th className="px-6 py-3">No</th>
                 <th className="px-6 py-3">No. Resi</th>
                 <th className="px-6 py-3">Ekspedisi</th>
-                <th className="px-6 py-3">Scan Masuk</th> {/* <- Revisi */}
-                <th className="px-6 py-3">Scan Keluar</th> {/* <- Revisi */}
+                <th className="px-6 py-3">Scan Masuk</th>
+                <th className="px-6 py-3">Scan Keluar</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3 text-center">Aksi</th>
               </tr>
@@ -516,6 +602,37 @@ export default function Dashboard() {
         )}
       </div>
 
+      {showScanner && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-200">
+
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Camera className="text-purple-600" />
+                Scan Barcode
+              </h3>
+
+              <button
+                onClick={() => setShowScanner(false)}
+                className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-colors"
+                title="Tutup Kamera"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-hidden rounded-xl border-2 border-gray-100">
+              <div id="reader" className="w-full"></div>
+            </div>
+
+            <div className="mt-4 text-center">
+              <p className="text-sm font-medium text-gray-700">Arahkan kamera ke Barcode Resi</p>
+              <p className="text-xs text-gray-500 mt-1">Pastikan cahaya terang & barcode tidak terlipat</p>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {editModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">

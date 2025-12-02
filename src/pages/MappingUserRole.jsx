@@ -29,10 +29,7 @@ const MappingForm = ({ data, setData, applications, branches, roles, users }) =>
     return branches.filter(b => b.applicationId === parseInt(data.applicationId));
   }, [data.applicationId, branches]);
 
-  const filteredRoles = useMemo(() => {
-    if (!data.branchId) return [];
-    return roles.filter(r => r.branchId === parseInt(data.branchId));
-  }, [data.branchId, roles]);
+  const filteredRoles = roles;
 
   const filteredUsers = useMemo(() => {
     return users.filter(u => u.status);
@@ -215,14 +212,16 @@ const MappingUserRole = () => {
       b.name.toLowerCase().includes(searchBranch.toLowerCase())
   );
   const filteredRoles = roles.filter(
-    r => r.branchId === selectedBranch?.id &&
-      r.name.toLowerCase().includes(searchRole.toLowerCase())
+    r => r.name.toLowerCase().includes(searchRole.toLowerCase())
   );
   const filteredMappings = mappings
-    .filter(m => m.roleId === selectedRole?.id)
+    .filter(m =>
+      m.applicationId === selectedApp?.id &&
+      m.branchId === selectedBranch?.id &&
+      m.roleId === selectedRole?.id
+    )
     .map(m => ({ ...m, user: users.find(u => u.id === m.userId) }))
     .filter(m => m.user && m.user.fullName?.toLowerCase().includes(searchUser.toLowerCase()));
-
 
   return (
     <>
@@ -269,8 +268,8 @@ const MappingUserRole = () => {
                   setSelectedRole(null);
                 }}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${selectedApp?.id === app.id
-                    ? "bg-purple-100 text-purple-700 font-semibold"
-                    : "hover:bg-gray-50"
+                  ? "bg-purple-100 text-purple-700 font-semibold"
+                  : "hover:bg-gray-50"
                   }`}
               >
                 {app.app_name}
@@ -305,8 +304,8 @@ const MappingUserRole = () => {
                   setSelectedRole(null);
                 }}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${selectedBranch?.id === branch.id
-                    ? "bg-purple-100 text-purple-700 font-semibold"
-                    : "hover:bg-gray-50"
+                  ? "bg-purple-100 text-purple-700 font-semibold"
+                  : "hover:bg-gray-50"
                   }`}
               >
                 {branch.name}
@@ -338,8 +337,8 @@ const MappingUserRole = () => {
                 type="button"
                 onClick={() => setSelectedRole(role)}
                 className={`w-full text-left px-4 py-3 text-sm transition-colors ${selectedRole?.id === role.id
-                    ? "bg-purple-100 text-purple-700 font-semibold"
-                    : "hover:bg-gray-50"
+                  ? "bg-purple-100 text-purple-700 font-semibold"
+                  : "hover:bg-gray-50"
                   }`}
               >
                 {role.name}

@@ -6,11 +6,28 @@ import Button from '../reusable/Button';
 export default function RegisterPage() {
     const [userName, setUsername] = useState('');
     const [email, setEmail] = useState('');
+    const [emailError, setEmailError] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
 
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    const allowedDomains = [
+        "gmail.com",
+        "yahoo.com",
+        "yahoo.co.id",
+        "outlook.com",
+        "hotmail.com"
+    ];
+
+    const validateEmailDomain = (email) => {
+        const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!regex.test(email)) return false;
+
+        const domain = email.split("@")[1];
+        return allowedDomains.includes(domain);
+    };
 
     const navigate = useNavigate();
 
@@ -36,7 +53,6 @@ export default function RegisterPage() {
             navigate('/login?status=registered');
 
         } catch (err) {
-            // 4. Tangani error (misal: email sudah terdaftar)
             const errMsg = err.response?.data?.message || 'Registrasi gagal. Coba lagi.';
             setError(errMsg);
             setLoading(false);
@@ -81,10 +97,24 @@ export default function RegisterPage() {
                             type="email"
                             required
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="text-gray-700 w-full px-4 py-2 mt-1 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                             placeholder="anda@email.com"
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setEmail(value);
+
+                                if (!validateEmailDomain(value) && value) {
+                                    setEmailError("Gunakan email yang valid");
+                                } else {
+                                    setEmailError("");
+                                }
+                            }}
+                            className={`text-gray-700 w-full px-4 py-2 mt-1 border rounded-lg focus:ring-purple-500 focus:border-purple-500 ${emailError ? "border-red-500" : "border-gray-300"
+                                }`}
                         />
+
+                        {emailError && (
+                            <p className="text-sm text-red-600 mt-1">{emailError}</p>
+                        )}
                     </div>
 
                     <div>
@@ -130,7 +160,7 @@ export default function RegisterPage() {
                             type="submit"
                             variant="primary"
                             className="w-full py-3"
-                            disabled={loading}
+                            disabled={loading || emailError !== ''}
                         >
                             {loading ? 'Memproses...' : 'Daftar'}
                         </Button>

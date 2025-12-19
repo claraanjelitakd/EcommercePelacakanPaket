@@ -12,6 +12,18 @@ const Applications = () => {
   const [modalTitle, setModalTitle] = useState("Add Application");
   const [currentApp, setCurrentApp] = useState({ id: null, app_name: "", app_code: "", notes: "" });
 
+  const getUserRole = () => {
+    const savedData = localStorage.getItem("user");
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      return parsed.role?.name || "";
+    }
+    return "";
+  };
+
+  const userRole = getUserRole();
+  const isSuperAdmin = userRole === "Super Admin";
+
   useEffect(() => {
     fetchApplications();
   }, []);
@@ -48,6 +60,7 @@ const Applications = () => {
       setShowModal(false);
     } catch (error) {
       console.error("❌ Error saving application:", error);
+      alert("Gagal menyimpan. Pastikan Anda memiliki akses.");
     }
   };
 
@@ -58,6 +71,7 @@ const Applications = () => {
       await fetchApplications();
     } catch (error) {
       console.error("❌ Error deleting application:", error);
+      alert("Gagal menghapus. Hanya Super Admin yang bisa menghapus.");
     }
   };
 
@@ -99,15 +113,18 @@ const Applications = () => {
           >
             <Edit3 size={18} />
           </Button>
-          <Button
-            variant="ghost"
-            isIconOnly={true}
-            onClick={() => handleDelete(row.id)}
-            className="text-red-500 hover:text-red-700"
-            title="Hapus"
-          >
-            <Trash2 size={18} />
-          </Button>
+
+          {isSuperAdmin && (
+            <Button
+              variant="ghost"
+              isIconOnly={true}
+              onClick={() => handleDelete(row.id)}
+              className="text-red-500 hover:text-red-700"
+              title="Hapus"
+            >
+              <Trash2 size={18} />
+            </Button>
+          )}
         </div>
       ),
       center: true,
@@ -120,10 +137,14 @@ const Applications = () => {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Applications</h1>
-        <Button variant="primary" onClick={handleAddNew}>
-          <Plus size={18} />
-          Add New
-        </Button>
+
+        {/* Tombol Add New: HANYA untuk Super Admin */}
+        {isSuperAdmin && (
+          <Button variant="primary" onClick={handleAddNew}>
+            <Plus size={18} />
+            Add New
+          </Button>
+        )}
       </div>
 
       {/* Search  */}
@@ -160,10 +181,7 @@ const Applications = () => {
         onSave={handleSave}
         saveText="Simpan Perubahan"
       >
-        {/* 'children' modalnya adalah form */}
         <form id="applicationForm" onSubmit={(e) => e.preventDefault()} className="space-y-4">
-
-          {/* Form Group */}
           <div>
             <label htmlFor="app_name" className="block text-sm font-medium text-gray-700 mb-1">
               Application Name
@@ -178,7 +196,6 @@ const Applications = () => {
             />
           </div>
 
-          {/* Form Group */}
           <div>
             <label htmlFor="app_code" className="block text-sm font-medium text-gray-700 mb-1">
               Application Code
@@ -193,7 +210,6 @@ const Applications = () => {
             />
           </div>
 
-          {/* Form Group */}
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
               Notes
@@ -207,7 +223,6 @@ const Applications = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
             />
           </div>
-
         </form>
       </Modal>
     </>

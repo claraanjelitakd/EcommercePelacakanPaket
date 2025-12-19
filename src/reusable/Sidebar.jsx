@@ -1,13 +1,35 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { HouseDoor, People, Briefcase, Building, BoxArrowRight, Kanban, X } from "react-bootstrap-icons";
+import { HouseDoor, People, Briefcase, Building, BoxArrowRight, Kanban, X, Map } from "react-bootstrap-icons"; // Tambah icon Map jika perlu untuk Mapping
 import api from '../api/api';
 
 const Sidebar = ({ open, setOpen }) => {
   const navigate = useNavigate();
 
+  const getUserRole = () => {
+    const userString = localStorage.getItem("user");
+    if (userString) {
+      try {
+        const user = JSON.parse(userString);
+        return user.role?.name || "";
+      } catch (error) {
+        return "";
+      }
+    }
+    return "";
+  };
+
+  const userRole = getUserRole();
+
+  const canAccessSystemSettings = userRole === "Super Admin" || userRole === "Owner";
+  const admin = userRole === "Super Admin";
+
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user"); // Bersihkan user juga
+    localStorage.removeItem("application");
+    localStorage.removeItem("branch");
+
     delete api.defaults.headers.common["Authorization"];
     navigate("/login");
   };
@@ -20,14 +42,16 @@ const Sidebar = ({ open, setOpen }) => {
 
   return (
     <>
+      {/* Mobile Overlay */}
       <div
         onClick={() => setOpen(false)}
         className={`fixed inset-0 z-20 bg-black/50 transition-opacity lg:hidden ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
       />
 
+      {/* Sidebar Container */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 flex h-full w-[240px] flex-col bg-purple-900 text-white shadow-lg transition-transform duration-300 ease-in-out lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full' // Logika buka/tutup mobile
+        className={`fixed inset-y-0 left-0 z-30 flex h-full w-[240px] flex-col bg-purple-900 text-white shadow-lg transition-transform duration-300 ease-in-out lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'
           }`}
       >
         <div className="flex items-center justify-between p-4 border-b border-purple-800">
@@ -48,26 +72,35 @@ const Sidebar = ({ open, setOpen }) => {
                 <HouseDoor size={18} /> Dashboard
               </NavLink>
             </li>
-            <li>
-              <NavLink to="/applications" className={linkClass}>
-                <Kanban size={18} /> Applications
-              </NavLink>
-            </li>
+
+            {canAccessSystemSettings && (
+              <li>
+                <NavLink to="/applications" className={linkClass}>
+                  <Kanban size={18} /> Applications
+                </NavLink>
+              </li>
+            )}
+
             <li>
               <NavLink to="/branches" className={linkClass}>
                 <Building size={18} /> Branches
               </NavLink>
             </li>
-            <li>
-              <NavLink to="/roles" className={linkClass}>
-                <Briefcase size={18} /> Roles
-              </NavLink>
-            </li>
+
+            {admin && (
+              <li>
+                <NavLink to="/roles" className={linkClass}>
+                  <Briefcase size={18} /> Roles
+                </NavLink>
+              </li>
+            )}
+
             <li>
               <NavLink to="/mapping-user" className={linkClass}>
                 <People size={18} /> Mapping User
               </NavLink>
             </li>
+
             <li>
               <NavLink to="/users" className={linkClass}>
                 <People size={18} /> Users

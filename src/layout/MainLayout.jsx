@@ -11,7 +11,6 @@ const MainLayout = ({ children }) => {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // 1. Ambil data user dari localStorage
         const userString = localStorage.getItem("user");
 
         if (userString) {
@@ -44,15 +43,10 @@ const MainLayout = ({ children }) => {
     return (
         <div className="flex min-h-screen bg-gray-50">
 
-            {/* 3. Render Sidebar HANYA jika Admin */}
             {isAdmin && (
                 <Sidebar open={sidebarOpen} setOpen={setSidebarOpen} />
             )}
 
-            {/* 4. Konten Utama 
-                - Jika Admin: Geser ke kanan (lg:ml-[240px])
-                - Jika Bukan: Full width (hapus margin)
-            */}
             <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isAdmin ? "lg:ml-[240px]" : ""
                 }`}>
 
@@ -60,7 +54,6 @@ const MainLayout = ({ children }) => {
                     <div className="flex items-center justify-between">
 
                         <div className="flex items-center gap-3">
-                            {/* Tombol Hamburger (Hanya muncul jika Admin & di layar kecil) */}
                             {isAdmin && (
                                 <Button
                                     onClick={() => setSidebarOpen(true)}

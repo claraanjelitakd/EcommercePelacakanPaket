@@ -1,4 +1,3 @@
-// --- 1. Impor yang Diperbarui ---
 import React, { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
 import { Search, Plus, Edit3, Trash2 } from "lucide-react";
@@ -20,6 +19,20 @@ const Branches = () => {
     code: "",
   });
 
+  // --- 1. CEK ROLE USER ---
+  const getUserRole = () => {
+    const savedData = localStorage.getItem("user");
+    if (savedData) {
+      const parsed = JSON.parse(savedData);
+      return parsed.role?.name || "";
+    }
+    return "";
+  };
+
+  const userRole = getUserRole();
+  // Super Admin & Owner punya hak kelola cabang
+  const canManage = userRole === "Super Admin" || userRole === "Owner";
+
   useEffect(() => {
     fetchApplications();
     fetchBranches();
@@ -27,11 +40,14 @@ const Branches = () => {
 
   const fetchApplications = async () => {
     try {
-      const {data} = await api.get("/applications");
+      const { data } = await api.get("/applications");
       setApplications(data);
-      console.log(data);
-      if (res.data.length > 0) {
-        setSelectedApp(res.data[0]);
+
+      // FIX & UX IMPROVEMENT:
+      // Jika data ada, otomatis pilih aplikasi pertama.
+      // Ini sangat membantu Owner yang hanya punya 1 aplikasi, jadi gak perlu klik lagi.
+      if (data && data.length > 0) {
+        setSelectedApp(data[0]);
       }
     } catch (error) {
       console.error("❌ Error fetching applications:", error);
@@ -72,16 +88,22 @@ const Branches = () => {
       return;
     }
     try {
+      // Backend kita butuh applicationId.
+      // Jika Owner, backend otomatis pakai ID Owner. 
+      // Jika Super Admin, backend baca dari body.
+      // Jadi kita pastikan payloadnya lengkap.
+      const payload = { ...currentBranch, applicationId: selectedApp.id };
+
       if (currentBranch.id) {
-        await api.put(`/branches/${currentBranch.id}`, currentBranch);
+        await api.put(`/branches/${currentBranch.id}`, payload);
       } else {
-        await api.post("/branches", currentBranch);
+        await api.post("/branches", payload);
       }
       fetchBranches();
       setShowModal(false);
     } catch (err) {
       console.error("❌ Error saving branch:", err);
-      alert("Failed to save branch!");
+      alert("Failed to save branch! Pastikan Anda memiliki akses.");
     }
   };
 
@@ -92,14 +114,15 @@ const Branches = () => {
       fetchBranches();
     } catch (err) {
       console.error("❌ Error deleting branch:", err);
+      alert("Gagal menghapus branch.");
     }
   };
 
   // Filter
   const filteredApps = applications.filter(
     (app) =>
-      app.app_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.app_code.toLowerCase().includes(searchTerm.toLowerCase())
+      app.app_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.app_code?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredBranches = branches.filter(
@@ -135,24 +158,31 @@ const Branches = () => {
       name: "Action",
       cell: (row) => (
         <div className="flex justify-center gap-1">
-          <Button
-            variant="ghost"
-            isIconOnly={true}
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-800"
-            title="Edit"
-          >
-            <Edit3 size={18} />
-          </Button>
-          <Button
-            variant="ghost"
-            isIconOnly={true}
-            onClick={() => handleDelete(row.id)}
-            className="text-red-500 hover:text-red-700"
-            title="Hapus"
-          >
-            <Trash2 size={18} />
-          </Button>
+          {/* Tombol Edit: Muncul jika punya hak akses */}
+          {canManage && (
+            <Button
+              variant="ghost"
+              isIconOnly={true}
+              onClick={() => handleEdit(row)}
+              className="text-blue-600 hover:text-blue-800"
+              title="Edit"
+            >
+              <Edit3 size={18} />
+            </Button>
+          )}
+
+          {/* Tombol Hapus: Muncul jika punya hak akses */}
+          {canManage && (
+            <Button
+              variant="ghost"
+              isIconOnly={true}
+              onClick={() => handleDelete(row.id)}
+              className="text-red-500 hover:text-red-700"
+              title="Hapus"
+            >
+              <Trash2 size={18} />
+            </Button>
+          )}
         </div>
       ),
       center: true,
@@ -167,21 +197,24 @@ const Branches = () => {
     },
   ];
 
-
   return (
     <>
       {/* Page Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Branch / Site</h1>
-        <Button
-          variant="primary"
-          onClick={handleAddNew}
-          disabled={!selectedApp}
-          title={!selectedApp ? "Pilih aplikasi terlebih dahulu" : "Tambah branch baru"}
-        >
-          <Plus size={18} />
-          Add New Branch
-        </Button>
+
+        {/* Tombol Add: Hanya untuk yang berhak */}
+        {canManage && (
+          <Button
+            variant="primary"
+            onClick={handleAddNew}
+            disabled={!selectedApp}
+            title={!selectedApp ? "Pilih aplikasi terlebih dahulu" : "Tambah branch baru"}
+          >
+            <Plus size={18} />
+            Add New Branch
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -197,7 +230,6 @@ const Branches = () => {
           />
         </div>
       </div>
-
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -243,6 +275,7 @@ const Branches = () => {
         title={modalTitle}
         onClose={() => setShowModal(false)}
         onSave={handleSave}
+        saveText="Simpan"
       >
         <form id="branchForm" onSubmit={(e) => e.preventDefault()} className="space-y-4">
 

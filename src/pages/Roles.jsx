@@ -1,14 +1,26 @@
 import React, { useState, useEffect } from "react";
 import DataTable from "react-data-table-component";
-import { Search, Plus, Edit3, Trash2 } from "lucide-react";
+import { Search, Plus, Edit3, Trash2, Shield, Lock } from "lucide-react"; // Tambah ikon Lock/Shield
 import api from "../api/api";
 import Button from "../reusable/Button";
 import Modal from "../reusable/Modal";
 
+const SYSTEM_ROLE_IDS = [1, 2, 3, 4];
+
 const Roles = () => {
+  const getUserData = () => {
+    const savedData = localStorage.getItem("user");
+    if (savedData) return JSON.parse(savedData);
+    return null;
+  };
+
+  const userData = getUserData();
+  const isSuperAdmin = userData?.role?.name === "Super Admin";
+
   const [roles, setRoles] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
   const [modalTitle, setModalTitle] = useState("Add Role");
   const [currentRole, setCurrentRole] = useState({
@@ -43,15 +55,15 @@ const Roles = () => {
   // Handler
   const handleAddNew = () => {
     setModalTitle("Add Role");
-    setCurrentRole({
-      id: null,
-      name: "",
-      description: "",
-    });
+    setCurrentRole({ id: null, name: "", description: "" });
     setShowModal(true);
   };
 
   const handleEdit = (role) => {
+    if (SYSTEM_ROLE_IDS.includes(role.id)) {
+      alert("Role bawaan sistem tidak boleh diedit.");
+      return;
+    }
     setModalTitle("Edit Role");
     setCurrentRole(role);
     setShowModal(true);
@@ -72,17 +84,22 @@ const Roles = () => {
       setShowModal(false);
     } catch (err) {
       console.error("❌ Error saving role:", err);
-      alert("Failed to save role!");
+      alert(err.response?.data?.message || "Failed to save role!");
     }
   };
 
   const handleDelete = async (id) => {
+    if (SYSTEM_ROLE_IDS.includes(id)) {
+      alert("Role bawaan sistem tidak boleh dihapus.");
+      return;
+    }
     if (!window.confirm("Are you sure want to delete this role?")) return;
     try {
       await api.delete(`/roles/${id}`);
       fetchRoles();
     } catch (err) {
       console.error("❌ Error deleting role:", err);
+      alert(err.response?.data?.message || "Gagal menghapus role.");
     }
   };
 
@@ -105,34 +122,59 @@ const Roles = () => {
   };
 
   const roleColumns = [
-    { name: "Role", selector: (row) => row.name, sortable: true, grow: 1 },
+    {
+      name: "Role",
+      selector: (row) => row.name,
+      sortable: true,
+      grow: 1,
+      cell: (row) => (
+        <div className="flex items-center gap-2 font-medium">
+          {SYSTEM_ROLE_IDS.includes(row.id) && <Shield size={14} className="text-purple-600" fill="currentColor" />}
+          {row.name}
+        </div>
+      )
+    },
     { name: "Description", selector: (row) => row.description || "-", grow: 2 },
     {
       name: "Action",
-      cell: (row) => (
-        <div className="flex justify-center gap-1">
-          <Button
-            variant="ghost"
-            isIconOnly={true}
-            onClick={() => handleEdit(row)}
-            className="text-blue-600 hover:text-blue-800"
-            title="Edit"
-          >
-            <Edit3 size={18} />
-          </Button>
-          <Button
-            variant="ghost"
-            isIconOnly={true}
-            onClick={() => handleDelete(row.id)}
-            className="text-red-500 hover:text-red-700"
-            title="Hapus"
-          >
-            <Trash2 size={18} />
-          </Button>
-        </div>
-      ),
+      cell: (row) => {
+        const isSystemRole = SYSTEM_ROLE_IDS.includes(row.id);
+
+        if (!isSuperAdmin) return null;
+
+        return (
+          <div className="flex justify-center gap-1">
+            {isSystemRole ? (
+              <span className="text-gray-400 flex items-center gap-1 text-xs italic px-2 py-1 bg-gray-100 rounded">
+                <Lock size={12} /> Protected
+              </span>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  isIconOnly={true}
+                  onClick={() => handleEdit(row)}
+                  className="text-blue-600 hover:text-blue-800"
+                  title="Edit"
+                >
+                  <Edit3 size={18} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  isIconOnly={true}
+                  onClick={() => handleDelete(row.id)}
+                  className="text-red-500 hover:text-red-700"
+                  title="Hapus"
+                >
+                  <Trash2 size={18} />
+                </Button>
+              </>
+            )}
+          </div>
+        );
+      },
       center: true,
-      width: "120px",
+      width: "150px",
     },
   ];
 
@@ -141,13 +183,16 @@ const Roles = () => {
       {/* Page Header */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">Roles Management</h1>
-        <Button
-          variant="primary"
-          onClick={handleAddNew}
-        >
-          <Plus size={18} />
-          Add New Role
-        </Button>
+
+        {isSuperAdmin && (
+          <Button
+            variant="primary"
+            onClick={handleAddNew}
+          >
+            <Plus size={18} />
+            Add New Role
+          </Button>
+        )}
       </div>
 
       {/* Search Bar */}
@@ -178,56 +223,59 @@ const Roles = () => {
             persistTableHead
             noDataComponent={
               <div className="p-10 text-center text-gray-500">
-                No roles defined yet. Click "Create New Role" to start.
+                No roles found.
               </div>
             }
           />
         </div>
       </div>
 
-      {/* Modal */}
-      <Modal
-        show={showModal}
-        title={modalTitle}
-        onClose={() => setShowModal(false)}
-        onSave={handleSave}
-      >
-        <form id="roleForm" onSubmit={(e) => e.preventDefault()} className="space-y-4">
+      {/* Modal - Hanya Render jika Super Admin (Security Layer) */}
+      {isSuperAdmin && (
+        <Modal
+          show={showModal}
+          title={modalTitle}
+          onClose={() => setShowModal(false)}
+          onSave={handleSave}
+        >
+          <form id="roleForm" onSubmit={(e) => e.preventDefault()} className="space-y-4">
 
-          <div>
-            <label htmlFor="role_name" className="block text-sm font-medium text-gray-700 mb-1">
-              Role Name
-            </label>
-            <input
-              id="role_name"
-              type="text"
-              value={currentRole.name || ""}
-              onChange={(e) =>
-                setCurrentRole({ ...currentRole, name: e.target.value })
-              }
-              placeholder="Enter role name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none" autoFocus
-            />
-          </div>
+            <div>
+              <label htmlFor="role_name" className="block text-sm font-medium text-gray-700 mb-1">
+                Role Name
+              </label>
+              <input
+                id="role_name"
+                type="text"
+                value={currentRole.name || ""}
+                onChange={(e) =>
+                  setCurrentRole({ ...currentRole, name: e.target.value })
+                }
+                placeholder="Enter role name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                autoFocus
+              />
+            </div>
 
-          <div>
-            <label htmlFor="role_desc" className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              id="role_desc"
-              rows={2}
-              value={currentRole.description || ""}
-              onChange={(e) =>
-                setCurrentRole({ ...currentRole, description: e.target.value })
-              }
-              placeholder="Optional description"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-            />
-          </div>
+            <div>
+              <label htmlFor="role_desc" className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <textarea
+                id="role_desc"
+                rows={2}
+                value={currentRole.description || ""}
+                onChange={(e) =>
+                  setCurrentRole({ ...currentRole, description: e.target.value })
+                }
+                placeholder="Optional description"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              />
+            </div>
 
-        </form>
-      </Modal>
+          </form>
+        </Modal>
+      )}
     </>
   );
 };

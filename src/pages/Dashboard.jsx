@@ -1,5 +1,23 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Search, Trash2, X, Edit3, ChevronLeft, ChevronRight, CheckCircle, Clock, CalendarDays, ChevronDown, Truck, ListFilter, UserCheck, Camera, ShieldAlert, Building, Kanban } from "lucide-react";
+import {
+  Search,
+  Trash2,
+  X,
+  Edit3,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  Clock,
+  CalendarDays,
+  ChevronDown,
+  Truck,
+  ListFilter,
+  UserCheck,
+  Camera,
+  ShieldAlert,
+  Building,
+  Kanban,
+} from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 import api from "../api/api";
 import Button from "../reusable/Button";
@@ -81,12 +99,11 @@ export default function Dashboard() {
       if (isSuperAdmin) {
         const [appRes, branchRes] = await Promise.all([
           api.get("/applications"),
-          api.get("/branches")
+          api.get("/branches"),
         ]);
         setListApplications(appRes.data);
         setListBranches(branchRes.data);
-      }
-      else if (isOwner) {
+      } else if (isOwner) {
         // Owner only needs branches
         const branchRes = await api.get("/branches");
         setListBranches(branchRes.data);
@@ -102,12 +119,12 @@ export default function Dashboard() {
       scanner = new Html5QrcodeScanner(
         "reader",
         {
-          fps: 10,
+          fps: 15,
           qrbox: { width: 350, height: 150 },
           aspectRatio: 1.0,
           disableFlip: false,
         },
-        false
+        false,
       );
 
       scanner.render(
@@ -118,13 +135,15 @@ export default function Dashboard() {
             processSubmit(cleanText);
           }
         },
-        (errorMessage) => { }
+        (errorMessage) => {},
       );
     }
 
     return () => {
       if (scanner) {
-        try { scanner.clear(); } catch (error) { }
+        try {
+          scanner.clear();
+        } catch (error) {}
       }
       isProcessingRef.current = false;
     };
@@ -132,41 +151,47 @@ export default function Dashboard() {
 
   // --- API HANDLERS ---
   const processSubmit = async (code) => {
-    if (isSuperAdmin) return;
-    if (!code || code.trim() === "") return;
-    if (isProcessingRef.current) return;
+    if (isSuperAdmin || !code || code.trim() === "" || isProcessingRef.current)
+      return;
 
+    // --- POIN NO. 2: RESET INSTAN ---
+    // Kita kunci proses dan langsung kosongkan input agar scanner bisa nembak lagi
     isProcessingRef.current = true;
+    const targetCode = code.trim().toUpperCase();
+    setScanValue;
+    ("");
 
     try {
-      const endpoint = mode === "masuk" ? "/packages/masuk" : "/packages/keluar";
-      const res = await api.post(endpoint, { noResi: code });
+      const endpoint =
+        mode === "masuk" ? "/packages/masuk" : "/packages/keluar";
+      const res = await api.post(endpoint, { noResi: targetCode });
       const data = res.data;
 
-      if (mode === "masuk") {
-        setPackages((prev) => [data, ...prev]);
-      } else {
-        setPackages((prev) => {
-          const existsLocally = prev.find(p => p.noResi === data.noResi);
+      // --- POIN NO. 3: FUNCTIONAL UPDATE ---
+      // Menggunakan (prev) => ... agar data scan cepat tidak saling tindih
+      setPackages((prev) => {
+        if (mode === "masuk") {
+          return [data, ...prev]; // Tambah ke atas
+        } else {
+          // Mode keluar: cari apakah resi sudah ada di list untuk diupdate statusnya
+          const existsLocally = prev.find((p) => p.noResi === data.noResi);
           return existsLocally
             ? prev.map((p) => (p.noResi === data.noResi ? data : p))
             : [data, ...prev];
-        });
-      }
+        }
+      });
 
-      new Audio("/success-beep.mp3").play().catch(() => { });
-      setScanValue("");
-
+      new Audio("/success-beep.mp3").play().catch(() => {});
     } catch (err) {
       console.error("Scan Error:", err);
       alert(`Gagal: ${err.response?.data?.message || "Terjadi kesalahan"}`);
     } finally {
-      setTimeout(() => {
-        isProcessingRef.current = false;
-      }, 1500);
+      // --- POIN NO. 1: REMOVE DELAY ---
+      // Langsung buka kunci tanpa setTimeout 1500ms
+      isProcessingRef.current = false;
+      inputRef.current?.focus();
     }
   };
-
   const fetchPackages = async () => {
     try {
       const res = await api.get("/packages");
@@ -205,7 +230,7 @@ export default function Dashboard() {
       });
       const updatedData = res.data;
       setPackages((prev) =>
-        prev.map((p) => (p.id === editingPkgId ? { ...p, ...updatedData } : p))
+        prev.map((p) => (p.id === editingPkgId ? { ...p, ...updatedData } : p)),
       );
       setEditModalOpen(false);
       setEditingPkgId(null);
@@ -220,10 +245,14 @@ export default function Dashboard() {
   const formatTanggal = (tanggalString) => {
     if (!tanggalString) return "-";
     const options = {
-      day: '2-digit', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: false
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     };
-    return new Date(tanggalString).toLocaleString('id-ID', options);
+    return new Date(tanggalString).toLocaleString("id-ID", options);
   };
 
   const handleScanSubmit = (e) => {
@@ -236,17 +265,25 @@ export default function Dashboard() {
 
   const handleScanChange = (e) => {
     const rawValue = e.target.value;
-    const cleanedValue = rawValue.replace(/[^a-zA-Z0-9-]/g, '');
+    const cleanedValue = rawValue.replace(/[^a-zA-Z0-9-]/g, "");
     setScanValue(cleanedValue.toUpperCase().slice(0, 25));
   };
 
   // --- FILTERING (Memoized) ---
-  const listByMasuk = useMemo(() => ['All', ...new Set(packages.map(p => p.byMasuk).filter(Boolean))], [packages]);
-  const listByKeluar = useMemo(() => ['All', ...new Set(packages.map(p => p.byKeluar).filter(Boolean))], [packages]);
+  const listByMasuk = useMemo(
+    () => ["All", ...new Set(packages.map((p) => p.byMasuk).filter(Boolean))],
+    [packages],
+  );
+  const listByKeluar = useMemo(
+    () => ["All", ...new Set(packages.map((p) => p.byKeluar).filter(Boolean))],
+    [packages],
+  );
 
   const filtered = useMemo(() => {
     return packages
-      .filter((pkg) => pkg.noResi.toLowerCase().includes(searchNo.toLowerCase()))
+      .filter((pkg) =>
+        pkg.noResi.toLowerCase().includes(searchNo.toLowerCase()),
+      )
       .filter((pkg) => {
         // Filter Aplikasi
         if (filterApp === "All") return true;
@@ -259,19 +296,39 @@ export default function Dashboard() {
         // Safety check: Pastikan data Branch ada sebelum akses id
         return pkg.Branch?.id == filterBranch; // Loose equality (==) handles string/number mismatch
       })
-      .filter((pkg) => filterEkspedisi === "All" ? true : pkg.ekspedisi === filterEkspedisi)
-      .filter((pkg) => filterStatus === "All" ? true : pkg.status === filterStatus)
-      .filter((pkg) => filterByMasuk === "All" ? true : pkg.byMasuk === filterByMasuk)
-      .filter((pkg) => filterByKeluar === "All" ? true : pkg.byKeluar === filterByKeluar)
+      .filter((pkg) =>
+        filterEkspedisi === "All" ? true : pkg.ekspedisi === filterEkspedisi,
+      )
+      .filter((pkg) =>
+        filterStatus === "All" ? true : pkg.status === filterStatus,
+      )
+      .filter((pkg) =>
+        filterByMasuk === "All" ? true : pkg.byMasuk === filterByMasuk,
+      )
+      .filter((pkg) =>
+        filterByKeluar === "All" ? true : pkg.byKeluar === filterByKeluar,
+      )
       .filter((pkg) => {
         if (!filterMonth) return true;
         if (!pkg.scanMasuk) return false;
         return pkg.scanMasuk.startsWith(filterMonth);
       });
-  }, [packages, searchNo, filterApp, filterBranch, filterEkspedisi, filterStatus, filterByMasuk, filterByKeluar, filterMonth]);
+  }, [
+    packages,
+    searchNo,
+    filterApp,
+    filterBranch,
+    filterEkspedisi,
+    filterStatus,
+    filterByMasuk,
+    filterByKeluar,
+    filterMonth,
+  ]);
 
   // Reset pagination saat filter berubah
-  useEffect(() => { setCurrentPage(1); }, [filtered.length]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filtered.length]);
 
   const currentItems = useMemo(() => {
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -286,13 +343,18 @@ export default function Dashboard() {
   const countKeluar = filtered.filter((p) => !!p.scanKeluar).length; // Use filtered for stats to match view
 
   useEffect(() => {
-    if (countMasuk > 0) { setAnimateMasuk(true); setTimeout(() => setAnimateMasuk(false), 300); }
+    if (countMasuk > 0) {
+      setAnimateMasuk(true);
+      setTimeout(() => setAnimateMasuk(false), 300);
+    }
   }, [countMasuk]);
 
   useEffect(() => {
-    if (countKeluar > 0) { setAnimateKeluar(true); setTimeout(() => setAnimateKeluar(false), 300); }
+    if (countKeluar > 0) {
+      setAnimateKeluar(true);
+      setTimeout(() => setAnimateKeluar(false), 300);
+    }
   }, [countKeluar]);
-
 
   // --- RENDER ---
   return (
@@ -302,14 +364,18 @@ export default function Dashboard() {
         <div className="grid grid-cols-2 gap-6 mb-6">
           <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
             <div className="text-xl text-gray-600">Total Masuk</div>
-            <div className={`text-3xl font-bold text-purple-700 transition-transform duration-300 ${animateMasuk ? "scale-125" : "scale-100"}`}>
+            <div
+              className={`text-3xl font-bold text-purple-700 transition-transform duration-300 ${animateMasuk ? "scale-125" : "scale-100"}`}
+            >
               {countMasuk}
             </div>
           </div>
 
           <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
             <div className="text-xl text-gray-600">Total Keluar</div>
-            <div className={`text-3xl font-bold text-green-700 transition-transform duration-300 ${animateKeluar ? "scale-125" : "scale-100"}`}>
+            <div
+              className={`text-3xl font-bold text-green-700 transition-transform duration-300 ${animateKeluar ? "scale-125" : "scale-100"}`}
+            >
               {countKeluar}
             </div>
           </div>
@@ -350,13 +416,20 @@ export default function Dashboard() {
                   maxLength={25}
                   autoFocus
                   placeholder={`Scan resi untuk ${mode === "masuk" ? "MASUK (IN)" : "KELUAR (OUT)"}...`}
-                  className={`w-full px-4 py-3 border-2 rounded-lg text-lg text-center tracking-widest uppercase focus:outline-none transition-colors ${mode === "masuk" ? "focus:border-purple-500 focus:ring-purple-200" : "focus:border-green-500 focus:ring-green-200"
-                    }`}
+                  className={`w-full px-4 py-3 border-2 rounded-lg text-lg text-center tracking-widest uppercase focus:outline-none transition-colors ${
+                    mode === "masuk"
+                      ? "focus:border-purple-500 focus:ring-purple-200"
+                      : "focus:border-green-500 focus:ring-green-200"
+                  }`}
                 />
 
                 <div className="absolute right-4 flex items-center gap-2">
                   {scanValue && (
-                    <button type="button" onClick={() => setScanValue("")} className="text-gray-400 hover:text-gray-600 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setScanValue("")}
+                      className="text-gray-400 hover:text-gray-600 p-1"
+                    >
                       <X size={20} />
                     </button>
                   )}
@@ -376,7 +449,9 @@ export default function Dashboard() {
           // Jika Super Admin, tampilkan Banner Monitoring
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center justify-center gap-3">
             <ShieldAlert className="text-purple-600" />
-            <span className="text-purple-800 font-medium">Monitoring Mode: Anda login sebagai Super Admin (Read-Only).</span>
+            <span className="text-purple-800 font-medium">
+              Monitoring Mode: Anda login sebagai Super Admin (Read-Only).
+            </span>
           </div>
         )}
       </div>
@@ -405,7 +480,12 @@ export default function Dashboard() {
                 className="bg-transparent outline-none text-sm w-full"
               />
             </div>
-            <Button variant="ghost" onClick={() => setFilterMonth("")} className="px-2" title="Reset Bulan">
+            <Button
+              variant="ghost"
+              onClick={() => setFilterMonth("")}
+              className="px-2"
+              title="Reset Bulan"
+            >
               <X size={18} className="text-red-500" />
             </Button>
           </div>
@@ -414,7 +494,6 @@ export default function Dashboard() {
         {/* Filter App & Branch */}
         {(isSuperAdmin || isOwner) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-
             {/* Filter Aplikasi - HANYA SUPER ADMIN */}
             {isSuperAdmin && (
               <div className="relative flex items-center w-full bg-white rounded-lg border border-gray-200">
@@ -428,8 +507,10 @@ export default function Dashboard() {
                   className="w-full bg-transparent outline-none appearance-none text-sm cursor-pointer px-3 py-2 pl-10 font-medium text-gray-700"
                 >
                   <option value="All">Semua Aplikasi</option>
-                  {listApplications.map(app => (
-                    <option key={app.id} value={app.id}>{app.app_name}</option>
+                  {listApplications.map((app) => (
+                    <option key={app.id} value={app.id}>
+                      {app.app_name}
+                    </option>
                   ))}
                 </select>
                 <ChevronDown className="text-gray-400 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -437,7 +518,9 @@ export default function Dashboard() {
             )}
 
             {/* Filter Branch - SUPER ADMIN & OWNER */}
-            <div className={`${isSuperAdmin ? "" : "col-span-2"} relative flex items-center w-full bg-white rounded-lg border border-gray-200`}>
+            <div
+              className={`${isSuperAdmin ? "" : "col-span-2"} relative flex items-center w-full bg-white rounded-lg border border-gray-200`}
+            >
               <Building className="text-purple-600 w-5 h-5 absolute left-3" />
               <select
                 value={filterBranch}
@@ -447,11 +530,14 @@ export default function Dashboard() {
                 <option value="All">Semua Cabang</option>
                 {listBranches
                   // Jika Super Admin memilih App tertentu, filter list cabangnya juga
-                  .filter(b => filterApp === "All" ? true : b.applicationId == filterApp)
-                  .map(branch => (
-                    <option key={branch.id} value={branch.id}>{branch.name}</option>
-                  ))
-                }
+                  .filter((b) =>
+                    filterApp === "All" ? true : b.applicationId == filterApp,
+                  )
+                  .map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
               </select>
               <ChevronDown className="text-gray-400 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -506,8 +592,10 @@ export default function Dashboard() {
               onChange={(e) => setFilterByMasuk(e.target.value)}
               className="w-full bg-transparent outline-none appearance-none text-sm cursor-pointer px-3 py-2 pl-10"
             >
-              {listByMasuk.map(name => (
-                <option key={name} value={name}>{name === 'All' ? 'Oleh (Masuk)' : name}</option>
+              {listByMasuk.map((name) => (
+                <option key={name} value={name}>
+                  {name === "All" ? "Oleh (Masuk)" : name}
+                </option>
               ))}
             </select>
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -521,8 +609,10 @@ export default function Dashboard() {
               onChange={(e) => setFilterByKeluar(e.target.value)}
               className="w-full bg-transparent outline-none appearance-none text-sm cursor-pointer px-3 py-2 pl-10"
             >
-              {listByKeluar.map(name => (
-                <option key={name} value={name}>{name === 'All' ? 'Oleh (Keluar)' : name}</option>
+              {listByKeluar.map((name) => (
+                <option key={name} value={name}>
+                  {name === "All" ? "Oleh (Keluar)" : name}
+                </option>
               ))}
             </select>
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -543,40 +633,65 @@ export default function Dashboard() {
                 <th className="px-6 py-3">Scan Keluar</th>
                 <th className="px-6 py-3 text-center">Status</th>
                 {/* Kolom Aksi Hanya untuk Staff/Manager */}
-                {!isSuperAdmin && <th className="px-6 py-3 text-center">Aksi</th>}
+                {!isSuperAdmin && (
+                  <th className="px-6 py-3 text-center">Aksi</th>
+                )}
               </tr>
             </thead>
             <tbody className="text-sm">
               {currentItems.length > 0 ? (
                 currentItems.map((pkg, i) => (
-                  <tr key={pkg.id} className="border-b hover:bg-purple-50 transition">
-                    <td className="px-6 py-3">{i + (currentPage - 1) * itemsPerPage + 1}</td>
-                    <td className="px-6 py-3 font-mono font-medium text-gray-700">{pkg.noResi}</td>
+                  <tr
+                    key={pkg.id}
+                    className="border-b hover:bg-purple-50 transition"
+                  >
+                    <td className="px-6 py-3">
+                      {i + (currentPage - 1) * itemsPerPage + 1}
+                    </td>
+                    <td className="px-6 py-3 font-mono font-medium text-gray-700">
+                      {pkg.noResi}
+                    </td>
                     <td className="px-6 py-3">{pkg.ekspedisi}</td>
 
                     <td className="px-6 py-3">
                       {pkg.scanMasuk ? (
                         <>
-                          <div className="text-gray-700">{formatTanggal(pkg.scanMasuk)}</div>
-                          <div className="text-gray-500 text-xs font-medium">{pkg.byMasuk || "-"}</div>
+                          <div className="text-gray-700">
+                            {formatTanggal(pkg.scanMasuk)}
+                          </div>
+                          <div className="text-gray-500 text-xs font-medium">
+                            {pkg.byMasuk || "-"}
+                          </div>
                         </>
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </td>
 
                     <td className="px-6 py-3">
                       {pkg.scanKeluar ? (
                         <>
-                          <div className="text-gray-700">{formatTanggal(pkg.scanKeluar)}</div>
-                          <div className="text-gray-500 text-xs font-medium">{pkg.byKeluar || "-"}</div>
+                          <div className="text-gray-700">
+                            {formatTanggal(pkg.scanKeluar)}
+                          </div>
+                          <div className="text-gray-500 text-xs font-medium">
+                            {pkg.byKeluar || "-"}
+                          </div>
                         </>
-                      ) : "-"}
+                      ) : (
+                        "-"
+                      )}
                     </td>
 
                     <td className="px-6 py-3 text-center">
-                      {pkg.status.toLowerCase() === 'terkirim' ? (
-                        <span title="Terkirim" className="text-green-600"><CheckCircle size={20} /></span>
+                      {pkg.status.toLowerCase() === "terkirim" ? (
+                        <span title="Terkirim" className="text-green-600">
+                          <CheckCircle size={20} />
+                        </span>
                       ) : (
-                        <span title="Pending" className="text-yellow-600"><Clock size={20} /></span>
+                        <span title="Pending" className="text-yellow-600">
+                          <Clock size={20} />
+                        </span>
                       )}
                     </td>
 
@@ -605,7 +720,10 @@ export default function Dashboard() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={!isSuperAdmin ? "7" : "6"} className="px-6 py-8 text-center text-gray-500">
+                  <td
+                    colSpan={!isSuperAdmin ? "7" : "6"}
+                    className="px-6 py-8 text-center text-gray-500"
+                  >
                     Tidak ada data paket yang ditemukan.
                   </td>
                 </tr>
@@ -618,13 +736,26 @@ export default function Dashboard() {
         {totalPages > 1 && (
           <div className="flex justify-between items-center p-4 border-t bg-gray-50">
             <span className="text-sm text-gray-600">
-              Halaman <strong>{currentPage}</strong> dari <strong>{totalPages}</strong>
+              Halaman <strong>{currentPage}</strong> dari{" "}
+              <strong>{totalPages}</strong>
             </span>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="px-3 py-1">
+              <Button
+                variant="secondary"
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1"
+              >
                 <ChevronLeft size={18} /> Sebelumnya
               </Button>
-              <Button variant="secondary" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="px-3 py-1">
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(p + 1, totalPages))
+                }
+                disabled={currentPage === totalPages}
+                className="px-3 py-1"
+              >
                 Berikutnya <ChevronRight size={18} />
               </Button>
             </div>
@@ -640,7 +771,10 @@ export default function Dashboard() {
               <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <Camera className="text-purple-600" /> Scan Barcode
               </h3>
-              <button onClick={() => setShowScanner(false)} className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-colors">
+              <button
+                onClick={() => setShowScanner(false)}
+                className="p-2 bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 rounded-full transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
@@ -655,10 +789,16 @@ export default function Dashboard() {
       {!isSuperAdmin && editModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-[90%] max-w-md relative animate-in fade-in zoom-in duration-200">
-            <Button variant="ghost" onClick={() => setEditModalOpen(false)} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 px-1 py-1">
+            <Button
+              variant="ghost"
+              onClick={() => setEditModalOpen(false)}
+              className="absolute right-4 top-4 text-gray-400 hover:text-gray-600 px-1 py-1"
+            >
               <X size={20} />
             </Button>
-            <h3 className="text-lg font-bold mb-1 text-gray-800">Edit Nomor Resi</h3>
+            <h3 className="text-lg font-bold mb-1 text-gray-800">
+              Edit Nomor Resi
+            </h3>
             <input
               type="text"
               value={editInput}
@@ -666,8 +806,16 @@ export default function Dashboard() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-purple-500 focus:outline-none uppercase font-mono"
             />
             <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setEditModalOpen(false)} className="flex-1">Batal</Button>
-              <Button variant="primary" onClick={saveEdit} className="flex-1">Simpan</Button>
+              <Button
+                variant="secondary"
+                onClick={() => setEditModalOpen(false)}
+                className="flex-1"
+              >
+                Batal
+              </Button>
+              <Button variant="primary" onClick={saveEdit} className="flex-1">
+                Simpan
+              </Button>
             </div>
           </div>
         </div>

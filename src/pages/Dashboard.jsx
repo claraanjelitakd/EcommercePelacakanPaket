@@ -83,16 +83,51 @@ export default function Dashboard() {
     if (!isSuperAdmin) {
       inputRef.current?.focus();
     }
-  }, [mode, packages, isSuperAdmin]);
+  }, [mode, packages.length, isSuperAdmin]);
 
   // Fetch Packages & Filter Data
+  /* KODE LAMA DIKOMEN (Hanya jalan sekali, kurang cocok untuk Multiple User)
   useEffect(() => {
     const initData = async () => {
-      await fetchPackages(); // Fetch packages first
-      await fetchFilterData(); // Then fetch filter options
+      await fetchPackages(); 
+      await fetchFilterData();
     };
     initData();
   }, [isSuperAdmin, isOwner]);
+  */
+
+  // --- PERBAIKAN MULTIPLE USER (Poin 3) ---
+  // 1. Ambil list Dropdown (App & Branch)
+  useEffect(() => {
+    fetchFilterData();
+  }, [isSuperAdmin, isOwner]);
+
+  // 2. Narik data paket SETIAP KALI filter berubah (Sinkronisasi Server)
+  useEffect(() => {
+    fetchPackages();
+  }, [
+    searchNo,
+    filterApp,
+    filterBranch,
+    filterMonth,
+    filterEkspedisi,
+    filterStatus,
+  ]);
+
+  // 3. AUTO-REFRESH: Cek data baru setiap 30 detik agar antar user sinkron otomatis
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchPackages();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [
+    searchNo,
+    filterApp,
+    filterBranch,
+    filterMonth,
+    filterEkspedisi,
+    filterStatus,
+  ]);
 
   const fetchFilterData = async () => {
     try {
@@ -104,7 +139,6 @@ export default function Dashboard() {
         setListApplications(appRes.data);
         setListBranches(branchRes.data);
       } else if (isOwner) {
-        // Owner only needs branches
         const branchRes = await api.get("/branches");
         setListBranches(branchRes.data);
       }
@@ -119,7 +153,7 @@ export default function Dashboard() {
       scanner = new Html5QrcodeScanner(
         "reader",
         {
-          fps: 15,
+          fps: 15, // Ditingkatkan dari 10 ke 15 agar lebih responsif
           qrbox: { width: 350, height: 150 },
           aspectRatio: 1.0,
           disableFlip: false,
@@ -131,7 +165,7 @@ export default function Dashboard() {
         (decodedText) => {
           const cleanText = decodedText.trim().toUpperCase();
           if (cleanText.length > 3) {
-            setScanValue(cleanText);
+            // setScanValue(cleanText); // Ini dikomen karena processSubmit sekarang menghapus value secepatnya
             processSubmit(cleanText);
           }
         },
@@ -155,11 +189,9 @@ export default function Dashboard() {
       return;
 
     // --- POIN NO. 2: RESET INSTAN ---
-    // Kita kunci proses dan langsung kosongkan input agar scanner bisa nembak lagi
     isProcessingRef.current = true;
     const targetCode = code.trim().toUpperCase();
-    setScanValue;
-    ("");
+    setScanValue(""); // Langsung kosongkan input SEBELUM nunggu API (Anti-Delay)
 
     try {
       const endpoint =
@@ -168,7 +200,6 @@ export default function Dashboard() {
       const data = res.data;
 
       // --- POIN NO. 3: FUNCTIONAL UPDATE ---
-      // Menggunakan (prev) => ... agar data scan cepat tidak saling tindih
       setPackages((prev) => {
         if (mode === "masuk") {
           return [data, ...prev]; // Tambah ke atas
@@ -187,14 +218,41 @@ export default function Dashboard() {
       alert(`Gagal: ${err.response?.data?.message || "Terjadi kesalahan"}`);
     } finally {
       // --- POIN NO. 1: REMOVE DELAY ---
-      // Langsung buka kunci tanpa setTimeout 1500ms
-      isProcessingRef.current = false;
+      /* KODE LAMA DIKOMEN
+      setTimeout(() => {
+        isProcessingRef.current = false; 
+      }, 1500);
+      */
+      isProcessingRef.current = false; // Buka kunci langsung (Anti-Delay)
       inputRef.current?.focus();
     }
   };
+
+  /* KODE LAMA DIKOMEN (Hanya ambil data tanpa parameter)
   const fetchPackages = async () => {
     try {
       const res = await api.get("/packages");
+      setPackages(res.data);
+    } catch (err) {
+      console.error("❌ Error fetching packages:", err);
+    }
+  };
+  */
+
+  // --- SESUDAH (DIPERBAIKI UNTUK MULTIPLE USER / SERVER-SIDE FILTER) ---
+  const fetchPackages = async () => {
+    try {
+      // Kirim parameter filter ke database agar data selalu sinkron antar user
+      const res = await api.get("/packages", {
+        params: {
+          search: searchNo || undefined,
+          appId: filterApp !== "All" ? filterApp : undefined,
+          branchId: filterBranch !== "All" ? filterBranch : undefined,
+          month: filterMonth || undefined,
+          ekspedisi: filterEkspedisi !== "All" ? filterEkspedisi : undefined,
+          status: filterStatus !== "All" ? filterStatus : undefined,
+        },
+      });
       setPackages(res.data);
     } catch (err) {
       console.error("❌ Error fetching packages:", err);
@@ -259,7 +317,7 @@ export default function Dashboard() {
     e.preventDefault();
     const value = scanValue.trim().toUpperCase();
     processSubmit(value);
-    setScanValue("");
+    // setScanValue(""); // Pindah ke processSubmit agar lebih instan
     inputRef.current?.focus();
   };
 
@@ -279,51 +337,28 @@ export default function Dashboard() {
     [packages],
   );
 
+  /* KODE LAMA DIKOMEN (Penyaringan manual di browser yang terlalu berat & bikin tidak sinkron)
   const filtered = useMemo(() => {
     return packages
       .filter((pkg) =>
         pkg.noResi.toLowerCase().includes(searchNo.toLowerCase()),
       )
-      .filter((pkg) => {
-        // Filter Aplikasi
-        if (filterApp === "All") return true;
-        // Safety check: Pastikan data Application ada sebelum akses id
-        return pkg.Application?.id == filterApp; // Loose equality (==) handles string/number mismatch
-      })
-      .filter((pkg) => {
-        // Filter Branch
-        if (filterBranch === "All") return true;
-        // Safety check: Pastikan data Branch ada sebelum akses id
-        return pkg.Branch?.id == filterBranch; // Loose equality (==) handles string/number mismatch
-      })
-      .filter((pkg) =>
-        filterEkspedisi === "All" ? true : pkg.ekspedisi === filterEkspedisi,
-      )
-      .filter((pkg) =>
-        filterStatus === "All" ? true : pkg.status === filterStatus,
-      )
-      .filter((pkg) =>
-        filterByMasuk === "All" ? true : pkg.byMasuk === filterByMasuk,
-      )
-      .filter((pkg) =>
-        filterByKeluar === "All" ? true : pkg.byKeluar === filterByKeluar,
-      )
-      .filter((pkg) => {
-        if (!filterMonth) return true;
-        if (!pkg.scanMasuk) return false;
-        return pkg.scanMasuk.startsWith(filterMonth);
-      });
-  }, [
-    packages,
-    searchNo,
-    filterApp,
-    filterBranch,
-    filterEkspedisi,
-    filterStatus,
-    filterByMasuk,
-    filterByKeluar,
-    filterMonth,
-  ]);
+      ...
+  }, [...]);
+  */
+
+  // --- SESUDAH (DIPERBAIKI) ---
+  // Sekarang database sudah memfilter Resi, App, Branch, dll.
+  // Frontend hanya memfilter sisanya (seperti nama penginput) agar ringan.
+  const filtered = useMemo(() => {
+    return packages.filter((pkg) => {
+      const matchByMasuk =
+        filterByMasuk === "All" ? true : pkg.byMasuk === filterByMasuk;
+      const matchByKeluar =
+        filterByKeluar === "All" ? true : pkg.byKeluar === filterByKeluar;
+      return matchByMasuk && matchByKeluar;
+    });
+  }, [packages, filterByMasuk, filterByKeluar]);
 
   // Reset pagination saat filter berubah
   useEffect(() => {
@@ -339,8 +374,8 @@ export default function Dashboard() {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
 
   // Animasi Angka
-  const countMasuk = filtered.filter((p) => !!p.scanMasuk).length; // Use filtered for stats to match view
-  const countKeluar = filtered.filter((p) => !!p.scanKeluar).length; // Use filtered for stats to match view
+  const countMasuk = filtered.filter((p) => !!p.scanMasuk).length;
+  const countKeluar = filtered.filter((p) => !!p.scanKeluar).length;
 
   useEffect(() => {
     if (countMasuk > 0) {
@@ -356,10 +391,10 @@ export default function Dashboard() {
     }
   }, [countKeluar]);
 
-  // --- RENDER ---
+  // --- RENDER (Tetap Sama) ---
   return (
     <>
-      {/* 1. Statistics Cards (Semua Role Bisa Lihat) */}
+      {/* 1. Statistics Cards */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 mb-6 text-center">
         <div className="grid grid-cols-2 gap-6 mb-6">
           <div className="bg-white h-[120px] rounded-xl shadow-md border border-gray-200 flex flex-col items-center justify-center">
@@ -383,10 +418,9 @@ export default function Dashboard() {
 
         <hr className="py-3" />
 
-        {/* 2. SCANNING SECTION (HANYA STAFF/MANAGER) */}
+        {/* 2. SCANNING SECTION */}
         {!isSuperAdmin ? (
           <>
-            {/* Tombol Toggle Mode */}
             <div className="flex justify-center gap-4 mb-4">
               <Button
                 onClick={() => setMode("masuk")}
@@ -405,7 +439,6 @@ export default function Dashboard() {
               </Button>
             </div>
 
-            {/* Input Field & Camera */}
             <form onSubmit={handleScanSubmit}>
               <div className="relative max-w-2xl mx-auto flex items-center">
                 <input
@@ -446,7 +479,6 @@ export default function Dashboard() {
             </form>
           </>
         ) : (
-          // Jika Super Admin, tampilkan Banner Monitoring
           <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 flex items-center justify-center gap-3">
             <ShieldAlert className="text-purple-600" />
             <span className="text-purple-800 font-medium">
@@ -456,7 +488,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* 3. Search & Filters (Semua Role Bisa Lihat) */}
+      {/* 3. Search & Filters */}
       <div className="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-200">
         <div className="flex flex-col md:flex-row items-center gap-3 mb-3">
           <div className="flex-1 flex items-center gap-3 w-full bg-gray-50 px-3 py-2 rounded-lg border border-gray-200 focus-within:ring-2 focus-within:ring-purple-300">
@@ -494,7 +526,6 @@ export default function Dashboard() {
         {/* Filter App & Branch */}
         {(isSuperAdmin || isOwner) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 p-3 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-            {/* Filter Aplikasi - HANYA SUPER ADMIN */}
             {isSuperAdmin && (
               <div className="relative flex items-center w-full bg-white rounded-lg border border-gray-200">
                 <Kanban className="text-purple-600 w-5 h-5 absolute left-3" />
@@ -502,7 +533,7 @@ export default function Dashboard() {
                   value={filterApp}
                   onChange={(e) => {
                     setFilterApp(e.target.value);
-                    setFilterBranch("All"); // Reset branch when app changes
+                    setFilterBranch("All");
                   }}
                   className="w-full bg-transparent outline-none appearance-none text-sm cursor-pointer px-3 py-2 pl-10 font-medium text-gray-700"
                 >
@@ -517,7 +548,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Filter Branch - SUPER ADMIN & OWNER */}
             <div
               className={`${isSuperAdmin ? "" : "col-span-2"} relative flex items-center w-full bg-white rounded-lg border border-gray-200`}
             >
@@ -529,7 +559,6 @@ export default function Dashboard() {
               >
                 <option value="All">Semua Cabang</option>
                 {listBranches
-                  // Jika Super Admin memilih App tertentu, filter list cabangnya juga
                   .filter((b) =>
                     filterApp === "All" ? true : b.applicationId == filterApp,
                   )
@@ -546,7 +575,6 @@ export default function Dashboard() {
 
         {/* Filter Dropdowns */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* Ekspedisi */}
           <div className="relative flex items-center w-full bg-gray-50 rounded-lg border border-gray-200">
             <Truck className="text-gray-500 w-5 h-5 absolute left-3" />
             <select
@@ -569,7 +597,6 @@ export default function Dashboard() {
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Status */}
           <div className="relative flex items-center w-full bg-gray-50 rounded-lg border border-gray-200">
             <ListFilter className="text-gray-500 w-5 h-5 absolute left-3" />
             <select
@@ -584,7 +611,6 @@ export default function Dashboard() {
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Oleh Masuk */}
           <div className="relative flex items-center w-full bg-gray-50 rounded-lg border border-gray-200">
             <UserCheck className="text-gray-500 w-5 h-5 absolute left-3" />
             <select
@@ -601,7 +627,6 @@ export default function Dashboard() {
             <ChevronDown className="text-gray-500 w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* Oleh Keluar */}
           <div className="relative flex items-center w-full bg-gray-50 rounded-lg border border-gray-200">
             <UserCheck className="text-gray-500 w-5 h-5 absolute left-3" />
             <select
@@ -620,7 +645,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 4. Table (Aksi Disembunyikan untuk Super Admin) */}
+      {/* 4. Table */}
       <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-auto text-left">
@@ -632,7 +657,6 @@ export default function Dashboard() {
                 <th className="px-6 py-3">Scan Masuk</th>
                 <th className="px-6 py-3">Scan Keluar</th>
                 <th className="px-6 py-3 text-center">Status</th>
-                {/* Kolom Aksi Hanya untuk Staff/Manager */}
                 {!isSuperAdmin && (
                   <th className="px-6 py-3 text-center">Aksi</th>
                 )}
@@ -652,7 +676,6 @@ export default function Dashboard() {
                       {pkg.noResi}
                     </td>
                     <td className="px-6 py-3">{pkg.ekspedisi}</td>
-
                     <td className="px-6 py-3">
                       {pkg.scanMasuk ? (
                         <>
@@ -667,7 +690,6 @@ export default function Dashboard() {
                         "-"
                       )}
                     </td>
-
                     <td className="px-6 py-3">
                       {pkg.scanKeluar ? (
                         <>
@@ -682,7 +704,6 @@ export default function Dashboard() {
                         "-"
                       )}
                     </td>
-
                     <td className="px-6 py-3 text-center">
                       {pkg.status.toLowerCase() === "terkirim" ? (
                         <span title="Terkirim" className="text-green-600">
@@ -694,8 +715,6 @@ export default function Dashboard() {
                         </span>
                       )}
                     </td>
-
-                    {/* Tombol Aksi - Hanya untuk Staff/Manager */}
                     {!isSuperAdmin && (
                       <td className="px-6 py-3 flex justify-center gap-1">
                         <Button
@@ -763,7 +782,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Modal Scanner (Hanya muncul jika !isSuperAdmin dan showScanner=true) */}
+      {/* Modal Scanner */}
       {!isSuperAdmin && showScanner && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[9999] p-4">
           <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-md relative animate-in zoom-in-95 duration-200">
@@ -785,8 +804,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal Edit (Hanya muncul jika !isSuperAdmin dan editModalOpen=true) */}
-      {!isSuperAdmin && editModalOpen && (
+      {/* Modal Edit */}
+      {editModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white p-6 rounded-xl shadow-xl w-[90%] max-w-md relative animate-in fade-in zoom-in duration-200">
             <Button
